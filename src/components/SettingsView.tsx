@@ -66,14 +66,33 @@ export default function SettingsView({ user, schools, onSettingsUpdated }: Setti
       setLoading(true);
       try {
         const res = await ApiService.getSettings();
+        
+        // Retrieve local storage overrides for serverless/Vercel persistence
+        const localAppTitle = localStorage.getItem('APP_TITLE');
+        const localAppSubtitle = localStorage.getItem('APP_SUBTITLE');
+        const localSuperAdminPass = localStorage.getItem('SUPER_ADMIN_PASSWORD');
+        const localAdminPass = localStorage.getItem('ADMIN_PASSWORD');
+        const localPetugasPass = localStorage.getItem('PETUGAS_PASSWORD');
+        const localScriptUrl = localStorage.getItem('GOOGLE_APPS_SCRIPT_URL');
+        const localSheetsUrl = localStorage.getItem('GOOGLE_SHEETS_URL');
+
         if (res.success && res.data) {
-          setAppTitle(res.data.app_title || 'SIM IGABA');
-          setAppSubtitle(res.data.app_subtitle || 'Klaten Utara');
-          setSuperAdminPass(res.data.super_admin_password || 'adminn');
-          setAdminPass(res.data.admin_password || 'admin');
-          setPetugasPass(res.data.petugas_password || 'petugas');
-          setScriptUrl(res.data.google_apps_script_url || '');
-          setSheetsUrl(res.data.google_sheets_url || 'https://docs.google.com/spreadsheets/d/1Bqgss06C6au6HfrLfF-6ywDftB7tOpN986b6QNh7ncI/edit');
+          setAppTitle(localAppTitle || res.data.app_title || 'SIM IGABA');
+          setAppSubtitle(localAppSubtitle || res.data.app_subtitle || 'Klaten Utara');
+          setSuperAdminPass(localSuperAdminPass || res.data.super_admin_password || 'adminn');
+          setAdminPass(localAdminPass || res.data.admin_password || 'admin');
+          setPetugasPass(localPetugasPass || res.data.petugas_password || 'petugas');
+          setScriptUrl(localScriptUrl || res.data.google_apps_script_url || '');
+          setSheetsUrl(localSheetsUrl || res.data.google_sheets_url || 'https://docs.google.com/spreadsheets/d/1Bqgss06C6au6HfrLfF-6ywDftB7tOpN986b6QNh7ncI/edit');
+        } else {
+          // Fallback entirely to local storage if API fails or settings are empty
+          if (localAppTitle) setAppTitle(localAppTitle);
+          if (localAppSubtitle) setAppSubtitle(localAppSubtitle);
+          if (localSuperAdminPass) setSuperAdminPass(localSuperAdminPass);
+          if (localAdminPass) setAdminPass(localAdminPass);
+          if (localPetugasPass) setPetugasPass(localPetugasPass);
+          if (localScriptUrl) setScriptUrl(localScriptUrl);
+          if (localSheetsUrl) setSheetsUrl(localSheetsUrl);
         }
       } catch (err: any) {
         setErrorMsg('Gagal memuat pengaturan: ' + err.message);
@@ -105,8 +124,17 @@ export default function SettingsView({ user, schools, onSettingsUpdated }: Setti
 
       const res = await ApiService.saveSettings(payload);
       if (res.success) {
-        setSuccessMsg('Pengaturan nama aplikasi dan password berhasil disimpan!');
+        setSuccessMsg('Pengaturan nama aplikasi, URL Google Sheets, dan password berhasil disimpan!');
+        
+        // Save to localStorage for robust client-side persistence
         localStorage.setItem('GOOGLE_APPS_SCRIPT_URL', scriptUrl);
+        localStorage.setItem('GOOGLE_SHEETS_URL', sheetsUrl);
+        localStorage.setItem('APP_TITLE', appTitle);
+        localStorage.setItem('APP_SUBTITLE', appSubtitle);
+        localStorage.setItem('SUPER_ADMIN_PASSWORD', superAdminPass);
+        localStorage.setItem('ADMIN_PASSWORD', adminPass);
+        localStorage.setItem('PETUGAS_PASSWORD', petugasPass);
+        
         onSettingsUpdated();
       } else {
         setErrorMsg(res.message || 'Gagal menyimpan pengaturan.');

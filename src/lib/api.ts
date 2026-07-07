@@ -14,13 +14,39 @@ export interface ApiResponse<T> {
 
 const API_BASE = '/api';
 
+// Helper to get headers with local overrides for Vercel/Serverless persistence
+function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extraHeaders
+  };
+  
+  const scriptUrl = localStorage.getItem('GOOGLE_APPS_SCRIPT_URL');
+  const sheetsUrl = localStorage.getItem('GOOGLE_SHEETS_URL');
+  const superAdminPass = localStorage.getItem('SUPER_ADMIN_PASSWORD');
+  const adminPass = localStorage.getItem('ADMIN_PASSWORD');
+  const petugasPass = localStorage.getItem('PETUGAS_PASSWORD');
+  const appTitle = localStorage.getItem('APP_TITLE');
+  const appSubtitle = localStorage.getItem('APP_SUBTITLE');
+
+  if (scriptUrl) headers['x-google-apps-script-url'] = scriptUrl;
+  if (sheetsUrl) headers['x-google-sheets-url'] = sheetsUrl;
+  if (superAdminPass) headers['x-super-admin-password'] = superAdminPass;
+  if (adminPass) headers['x-admin-password'] = adminPass;
+  if (petugasPass) headers['x-petugas-password'] = petugasPass;
+  if (appTitle) headers['x-app-title'] = appTitle;
+  if (appSubtitle) headers['x-app-subtitle'] = appSubtitle;
+
+  return headers;
+}
+
 export const ApiService = {
   // Authentication
   async login(username: string, password: string): Promise<{ success: boolean; user?: User; message?: string }> {
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
@@ -34,7 +60,9 @@ export const ApiService = {
   // Generic Sheets CRUD
   async getList<T>(sheet: string): Promise<ApiResponse<T[]>> {
     try {
-      const res = await fetch(`${API_BASE}/sheets/${sheet}`);
+      const res = await fetch(`${API_BASE}/sheets/${sheet}`, {
+        headers: getHeaders()
+      });
       return await res.json();
     } catch (err) {
       console.error(`Get list error for ${sheet}:`, err);
@@ -46,7 +74,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/sheets/${sheet}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(data)
       });
       return await res.json();
@@ -60,7 +88,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/sheets-import/${sheet}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(items)
       });
       return await res.json();
@@ -74,7 +102,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/sheets/${sheet}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(data)
       });
       return await res.json();
@@ -87,7 +115,8 @@ export const ApiService = {
   async deleteItem(sheet: string, id: string): Promise<ApiResponse<void>> {
     try {
       const res = await fetch(`${API_BASE}/sheets/${sheet}/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       });
       return await res.json();
     } catch (err) {
@@ -99,7 +128,9 @@ export const ApiService = {
   // Settings
   async getSettings(): Promise<ApiResponse<SystemSettings>> {
     try {
-      const res = await fetch(`${API_BASE}/settings`);
+      const res = await fetch(`${API_BASE}/settings`, {
+        headers: getHeaders()
+      });
       return await res.json();
     } catch (err) {
       return { success: false, message: 'Gagal memuat pengaturan' };
@@ -110,7 +141,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(settings)
       });
       return await res.json();
@@ -122,7 +153,9 @@ export const ApiService = {
   // Backup & Restore Database
   async backupDatabase(): Promise<any> {
     try {
-      const res = await fetch(`${API_BASE}/backup/export`);
+      const res = await fetch(`${API_BASE}/backup/export`, {
+        headers: getHeaders()
+      });
       return await res.json();
     } catch (err) {
       console.error('Backup error:', err);
@@ -134,7 +167,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/backup/import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(dbJson)
       });
       return await res.json();
@@ -148,7 +181,7 @@ export const ApiService = {
     try {
       const res = await fetch(`${API_BASE}/sheets-setup/initialize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ accessToken, spreadsheetId })
       });
       return await res.json();

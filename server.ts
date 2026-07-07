@@ -163,10 +163,34 @@ function saveLocalDatabase(db: any) {
   }
 }
 
+// Helper to get effective settings with header overrides for serverless environments (Vercel)
+function getEffectiveSettings(req: any, dbSettings: any): any {
+  const settings = { ...(dbSettings || {}) };
+  if (req && req.headers) {
+    const hScriptUrl = req.headers['x-google-apps-script-url'];
+    const hSheetsUrl = req.headers['x-google-sheets-url'];
+    const hSuperAdminPass = req.headers['x-super-admin-password'];
+    const hAdminPass = req.headers['x-admin-password'];
+    const hPetugasPass = req.headers['x-petugas-password'];
+    const hAppTitle = req.headers['x-app-title'];
+    const hAppSubtitle = req.headers['x-app-subtitle'];
+
+    if (hScriptUrl) settings.google_apps_script_url = hScriptUrl;
+    if (hSheetsUrl) settings.google_sheets_url = hSheetsUrl;
+    if (hSuperAdminPass) settings.super_admin_password = hSuperAdminPass;
+    if (hAdminPass) settings.admin_password = hAdminPass;
+    if (hPetugasPass) settings.petugas_password = hPetugasPass;
+    if (hAppTitle) settings.app_title = hAppTitle;
+    if (hAppSubtitle) settings.app_subtitle = hAppSubtitle;
+  }
+  return settings;
+}
+
 // Check if Apps Script is configured
-async function proxyToAppsScript(action: string, sheet: string, bodyData?: any, id?: string): Promise<any> {
+async function proxyToAppsScript(action: string, sheet: string, bodyData?: any, id?: string, req?: any): Promise<any> {
   const db = loadLocalDatabase();
-  const scriptUrl = db.settings?.google_apps_script_url || 
+  const scriptUrl = (req && req.headers && req.headers['x-google-apps-script-url']) ||
+                    db.settings?.google_apps_script_url || 
                     process.env.GOOGLE_APPS_SCRIPT_URL || 
                     'https://script.google.com/macros/s/AKfycbz4C2cHkY4u6Ige3Ru595DhyhOUn9Fv-t9aI6m1seek-NJjNKXOloY9mLyoh7BT4pJV/exec';
   
@@ -243,7 +267,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   const db = loadLocalDatabase();
-  const settings = db.settings || {};
+  const settings = getEffectiveSettings(req, db.settings);
   const superAdminPass = settings.super_admin_password || 'adminn';
   const adminPass = settings.admin_password || 'admin';
   const petugasPass = settings.petugas_password || 'petugas';
@@ -363,7 +387,7 @@ app.get('/api/sheets/:sheet', async (req, res) => {
   try {
     // Try proxying to Google Apps Script first
     const appsScriptSheet = getAppsScriptSheetName(sheet);
-    let scriptData = await proxyToAppsScript('list', appsScriptSheet);
+    let scriptData = await proxyToAppsScript('list', appsScriptSheet, undefined, undefined, req);
     if (scriptData) {
       // Auto-Sync Seeding: If Google Sheets works and is schools, make sure our 8 sample schools are synced!
       if (sheet === 'schools' && Array.isArray(scriptData)) {
@@ -387,7 +411,7 @@ app.get('/api/sheets/:sheet', async (req, res) => {
             if (!found) {
               console.log(`[Auto-Sync] Seeding missing school: ${localSch.name} (${localSch.id})`);
               try {
-                await proxyToAppsScript('create', 'Schools', localSch);
+                await proxyToAppsScript('create', 'Schools', localSch, undefined, req);
                 scriptData.push(localSch);
                 updatedAny = true;
               } catch (syncErr: any) {
@@ -401,7 +425,7 @@ app.get('/api/sheets/:sheet', async (req, res) => {
                 console.log(`[Auto-Sync] Syncing name/banner for school: ${localSch.name} (${localSch.id})`);
                 try {
                   const merged = { ...found, ...localSch };
-                  await proxyToAppsScript('update', 'Schools', merged, localSch.id);
+                  await proxyToAppsScript('update', 'Schools', merged, localSch.id, req);
                   const idx = scriptData.findIndex((s: any) => String(s.id) === String(localSch.id));
                   if (idx !== -1) {
                     scriptData[idx] = merged;
@@ -535,7 +559,7 @@ app.post('/api/sheets/:sheet', async (req, res) => {
   // 2. Try Apps Script proxy to synchronize
   try {
     const appsScriptSheet = getAppsScriptSheetName(sheet);
-    const scriptResult = await proxyToAppsScript('create', appsScriptSheet, bodyData);
+    const scriptResult = await proxyToAppsScript('create', appsScriptSheet, bodyData, undefined, req);
     if (scriptResult) {
       writeAuditLog('user', 'CREATE_RECORD', `Menambah data di sheet ${sheet}: ${bodyData.id} (Disinkronkan ke Google Sheets)`);
       return res.json({ success: true, source: 'google_sheets', data: typeof scriptResult === 'object' ? scriptResult : bodyData });
@@ -586,7 +610,7 @@ app.post('/api/sheets-import/:sheet', async (req, res) => {
     const appsScriptSheet = getAppsScriptSheetName(sheet);
     for (const item of processedItems) {
       try {
-        await proxyToAppsScript('create', appsScriptSheet, item);
+        await proxyToAppsScript('create', appsScriptSheet, item, undefined, req);
         syncCount++;
       } catch (syncErr: any) {
         syncErrors.push(`ID ${item.id}: ${syncErr.message}`);
@@ -638,7 +662,7 @@ app.put('/api/sheets/:sheet/:id', async (req, res) => {
   // 2. Try Apps Script proxy to synchronize
   try {
     const appsScriptSheet = getAppsScriptSheetName(sheet);
-    const scriptResult = await proxyToAppsScript('update', appsScriptSheet, bodyData, id);
+    const scriptResult = await proxyToAppsScript('update', appsScriptSheet, bodyData, id, req);
     if (scriptResult) {
       writeAuditLog('user', 'UPDATE_RECORD', `Mengubah data di sheet ${sheet}: ${id} (Disinkronkan ke Google Sheets)`);
       return res.json({ success: true, source: 'google_sheets', data: typeof scriptResult === 'object' ? scriptResult : updatedItem });
@@ -687,7 +711,7 @@ app.delete('/api/sheets/:sheet/:id', async (req, res) => {
   let deletedRemotely = false;
   try {
     const appsScriptSheet = getAppsScriptSheetName(sheet);
-    const scriptResult = await proxyToAppsScript('delete', appsScriptSheet, undefined, id);
+    const scriptResult = await proxyToAppsScript('delete', appsScriptSheet, undefined, id, req);
     if (scriptResult) {
       deletedRemotely = true;
     }
@@ -707,7 +731,8 @@ app.delete('/api/sheets/:sheet/:id', async (req, res) => {
 // Settings operations
 app.get('/api/settings', (req, res) => {
   const db = loadLocalDatabase();
-  res.json({ success: true, data: db.settings });
+  const settings = getEffectiveSettings(req, db.settings);
+  res.json({ success: true, data: settings });
 });
 
 app.post('/api/settings', (req, res) => {
@@ -808,7 +833,7 @@ app.post('/api/sheets-setup/initialize', async (req, res) => {
 
       // Handle single object in settings
       if (dbKey === 'settings') {
-        items = [items];
+        items = [getEffectiveSettings(req, db.settings)];
       }
 
       if (!Array.isArray(items) || items.length === 0) {
@@ -836,9 +861,11 @@ app.post('/api/sheets-setup/initialize', async (req, res) => {
     }
 
     // Save Spreadsheet URL and Google Apps Script URL alignment in db
-    const scriptUrl = db.settings?.google_apps_script_url || process.env.GOOGLE_APPS_SCRIPT_URL || '';
+    const settings = getEffectiveSettings(req, db.settings);
+    const scriptUrl = settings?.google_apps_script_url || process.env.GOOGLE_APPS_SCRIPT_URL || '';
     db.settings = {
       ...db.settings,
+      ...settings,
       google_sheets_url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       google_apps_script_url: scriptUrl
     };

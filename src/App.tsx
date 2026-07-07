@@ -39,11 +39,17 @@ export default function App() {
   // Verify session and fetch settings on mount
   useEffect(() => {
     const initApp = async () => {
+      // Set local storage values first for instantaneous rendering
+      const localAppTitle = localStorage.getItem('APP_TITLE');
+      const localAppSubtitle = localStorage.getItem('APP_SUBTITLE');
+      if (localAppTitle) setAppTitle(localAppTitle);
+      if (localAppSubtitle) setAppSubtitle(localAppSubtitle);
+
       try {
         const res = await ApiService.getSettings();
         if (res.success && res.data) {
-          if (res.data.app_title) setAppTitle(res.data.app_title);
-          if (res.data.app_subtitle) setAppSubtitle(res.data.app_subtitle);
+          setAppTitle(localAppTitle || res.data.app_title || 'SIM IGABA');
+          setAppSubtitle(localAppSubtitle || res.data.app_subtitle || 'Klaten Utara');
         }
       } catch (e) {
         console.error('Failed to load settings:', e);
@@ -91,8 +97,10 @@ export default function App() {
       if (stuRes.success && stuRes.data) setStudents(stuRes.data);
       if (repRes.success && repRes.data) setReports(repRes.data);
       if (setRes.success && setRes.data) {
-        if (setRes.data.app_title) setAppTitle(setRes.data.app_title);
-        if (setRes.data.app_subtitle) setAppSubtitle(setRes.data.app_subtitle);
+        const localAppTitle = localStorage.getItem('APP_TITLE');
+        const localAppSubtitle = localStorage.getItem('APP_SUBTITLE');
+        setAppTitle(localAppTitle || setRes.data.app_title || 'SIM IGABA');
+        setAppSubtitle(localAppSubtitle || setRes.data.app_subtitle || 'Klaten Utara');
       }
       
       // Map server-side logs key appropriately
