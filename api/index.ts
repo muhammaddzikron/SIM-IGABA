@@ -1,5 +1,3 @@
-import serverApp from '../dist/server.cjs';
-
-const app = (serverApp as any).default || serverApp;
+import app from '../server';
 
 export default app;
