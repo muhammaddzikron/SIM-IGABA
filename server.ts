@@ -29,7 +29,22 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 
 // Paths
-const DATA_FILE = path.join(process.cwd(), 'data-store.json');
+const DATA_FILE = (() => {
+  const isServerless = !!(process.env.VERCEL || process.env.TMPDIR || fs.existsSync('/tmp'));
+  if (isServerless) {
+    const tmpPath = path.join('/tmp', 'data-store.json');
+    const repoPath = path.join(process.cwd(), 'data-store.json');
+    if (!fs.existsSync(tmpPath) && fs.existsSync(repoPath)) {
+      try {
+        fs.copyFileSync(repoPath, tmpPath);
+      } catch (err) {
+        console.error('Failed to copy data-store.json to /tmp:', err);
+      }
+    }
+    return tmpPath;
+  }
+  return path.join(process.cwd(), 'data-store.json');
+})();
 
 // Ensure database file exists
 function loadLocalDatabase() {
@@ -897,4 +912,8 @@ async function start() {
   });
 }
 
-start();
+if (!process.env.VERCEL) {
+  start();
+}
+
+export default app;
