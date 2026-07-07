@@ -1,0 +1,8 @@
+{
+  "name": "Sistem Laporan Bulanan TK/PAUD Aisyiyah",
+  "description": "Sistem Informasi Laporan Bulanan TK/PAUD Aisyiyah Bustanul Athfal terintegrasi Google Spreadsheet dan Google Apps Script.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
