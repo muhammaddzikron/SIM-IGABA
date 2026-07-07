@@ -175,13 +175,22 @@ function getEffectiveSettings(req: any, dbSettings: any): any {
     const hAppTitle = req.headers['x-app-title'];
     const hAppSubtitle = req.headers['x-app-subtitle'];
 
-    if (hScriptUrl) settings.google_apps_script_url = hScriptUrl;
-    if (hSheetsUrl) settings.google_sheets_url = hSheetsUrl;
-    if (hSuperAdminPass) settings.super_admin_password = hSuperAdminPass;
-    if (hAdminPass) settings.admin_password = hAdminPass;
-    if (hPetugasPass) settings.petugas_password = hPetugasPass;
-    if (hAppTitle) settings.app_title = hAppTitle;
-    if (hAppSubtitle) settings.app_subtitle = hAppSubtitle;
+    const safeDecode = (val: any) => {
+      if (!val) return '';
+      try {
+        return decodeURIComponent(val).trim();
+      } catch (e) {
+        return String(val).trim();
+      }
+    };
+
+    if (hScriptUrl) settings.google_apps_script_url = safeDecode(hScriptUrl);
+    if (hSheetsUrl) settings.google_sheets_url = safeDecode(hSheetsUrl);
+    if (hSuperAdminPass) settings.super_admin_password = safeDecode(hSuperAdminPass);
+    if (hAdminPass) settings.admin_password = safeDecode(hAdminPass);
+    if (hPetugasPass) settings.petugas_password = safeDecode(hPetugasPass);
+    if (hAppTitle) settings.app_title = safeDecode(hAppTitle);
+    if (hAppSubtitle) settings.app_subtitle = safeDecode(hAppSubtitle);
   }
   return settings;
 }
@@ -189,10 +198,23 @@ function getEffectiveSettings(req: any, dbSettings: any): any {
 // Check if Apps Script is configured
 async function proxyToAppsScript(action: string, sheet: string, bodyData?: any, id?: string, req?: any): Promise<any> {
   const db = loadLocalDatabase();
-  const scriptUrl = (req && req.headers && req.headers['x-google-apps-script-url']) ||
-                    db.settings?.google_apps_script_url || 
-                    process.env.GOOGLE_APPS_SCRIPT_URL || 
-                    'https://script.google.com/macros/s/AKfycbz4C2cHkY4u6Ige3Ru595DhyhOUn9Fv-t9aI6m1seek-NJjNKXOloY9mLyoh7BT4pJV/exec';
+  
+  let scriptUrl = '';
+  if (req && req.headers && req.headers['x-google-apps-script-url']) {
+    try {
+      scriptUrl = decodeURIComponent(req.headers['x-google-apps-script-url']).trim();
+    } catch (e) {
+      scriptUrl = String(req.headers['x-google-apps-script-url']).trim();
+    }
+  }
+
+  if (!scriptUrl) {
+    scriptUrl = db.settings?.google_apps_script_url || 
+                process.env.GOOGLE_APPS_SCRIPT_URL || 
+                'https://script.google.com/macros/s/AKfycbz4C2cHkY4u6Ige3Ru595DhyhOUn9Fv-t9aI6m1seek-NJjNKXOloY9mLyoh7BT4pJV/exec';
+  }
+
+  scriptUrl = (scriptUrl || '').trim();
   
   if (!scriptUrl) {
     return null; // Not configured, fallback to local file database

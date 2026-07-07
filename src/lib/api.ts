@@ -29,13 +29,13 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
   const appTitle = localStorage.getItem('APP_TITLE');
   const appSubtitle = localStorage.getItem('APP_SUBTITLE');
 
-  if (scriptUrl) headers['x-google-apps-script-url'] = scriptUrl;
-  if (sheetsUrl) headers['x-google-sheets-url'] = sheetsUrl;
-  if (superAdminPass) headers['x-super-admin-password'] = superAdminPass;
-  if (adminPass) headers['x-admin-password'] = adminPass;
-  if (petugasPass) headers['x-petugas-password'] = petugasPass;
-  if (appTitle) headers['x-app-title'] = appTitle;
-  if (appSubtitle) headers['x-app-subtitle'] = appSubtitle;
+  if (scriptUrl) headers['x-google-apps-script-url'] = encodeURIComponent(scriptUrl.trim());
+  if (sheetsUrl) headers['x-google-sheets-url'] = encodeURIComponent(sheetsUrl.trim());
+  if (superAdminPass) headers['x-super-admin-password'] = encodeURIComponent(superAdminPass.trim());
+  if (adminPass) headers['x-admin-password'] = encodeURIComponent(adminPass.trim());
+  if (petugasPass) headers['x-petugas-password'] = encodeURIComponent(petugasPass.trim());
+  if (appTitle) headers['x-app-title'] = encodeURIComponent(appTitle.trim());
+  if (appSubtitle) headers['x-app-subtitle'] = encodeURIComponent(appSubtitle.trim());
 
   return headers;
 }
