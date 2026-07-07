@@ -110,9 +110,58 @@ function loadLocalDatabase() {
     
     // Self-healing: Ensure all seed schools exist in the schools list
     if (db.schools) {
+      const getDefaultUsername = (school: any): string => {
+        if (school.id === 'school-1') return 'tkabagergunung';
+        if (school.id === 'school-2') return 'tkababarenglor';
+        if (school.id === 'school-3') return 'tkababramen';
+        if (school.id === 'school-4') return 'tkabagunungan';
+
+        let name = (school.name || '').toLowerCase();
+        if (name.includes('gergunung')) return 'tkabagergunung';
+        if (name.includes('bareng') || name.includes('lor')) return 'tkababarenglor';
+        if (name.includes('bramen')) return 'tkababramen';
+        if (name.includes('gunungan')) return 'tkabagunungan';
+
+        let cleaned = name
+          .replace(/aisyiyah/g, '')
+          .replace(/bustanul/g, '')
+          .replace(/athfal/g, '')
+          .replace(/aba/g, '')
+          .replace(/[^a-z0-9]/g, '');
+        if (!cleaned.startsWith('tk')) {
+          cleaned = 'tkaba' + cleaned;
+        } else if (cleaned.startsWith('tk') && !cleaned.startsWith('tkaba')) {
+          cleaned = cleaned.replace(/^tk/, 'tkaba');
+        }
+        return cleaned || 'tkabapetugas';
+      };
+
+      // Apply credentials to existing schools in DB if missing
+      for (const s of db.schools) {
+        let changed = false;
+        if (!s.username_petugas) {
+          s.username_petugas = getDefaultUsername(s);
+          changed = true;
+        }
+        if (!s.password_petugas) {
+          s.password_petugas = s.username_petugas;
+          changed = true;
+        }
+        if (changed) {
+          updatedLocal = true;
+        }
+      }
+
       for (const s of seedSchools) {
         if (!db.schools.some((existingS: any) => String(existingS.id) === String(s.id))) {
-          db.schools.push(s);
+          const filledSchool = { ...s };
+          if (!filledSchool.username_petugas) {
+            filledSchool.username_petugas = getDefaultUsername(filledSchool);
+          }
+          if (!filledSchool.password_petugas) {
+            filledSchool.password_petugas = filledSchool.username_petugas;
+          }
+          db.schools.push(filledSchool);
           updatedLocal = true;
           
           // Also add teachers of this school if missing
@@ -364,6 +413,22 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   return res.status(401).json({ success: false, message: 'Kombinasi username atau password salah' });
+});
+
+// Auth schools list for login helper
+app.get('/api/auth/schools', (req, res) => {
+  try {
+    const db = loadLocalDatabase();
+    const publicSchools = (db.schools || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      npsn: s.npsn,
+      username_petugas: s.username_petugas || s.npsn || 'petugas',
+    }));
+    return res.json({ success: true, schools: publicSchools });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Generic dynamic sheets middleware/helpers

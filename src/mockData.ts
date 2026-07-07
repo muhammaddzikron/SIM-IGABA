@@ -52,7 +52,9 @@ export const schools: School[] = [
     longitude: '110.6124',
     foto_url: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=1200&auto=format&fit=crop&q=80',
     logo_url: '',
-    status_aktif: 'Aktif'
+    status_aktif: 'Aktif',
+    username_petugas: 'tkabagergunung',
+    password_petugas: 'tkabagergunung'
   },
   {
     id: 'school-2',
@@ -85,7 +87,9 @@ export const schools: School[] = [
     longitude: '110.6080',
     foto_url: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1200&auto=format&fit=crop&q=80',
     logo_url: '',
-    status_aktif: 'Aktif'
+    status_aktif: 'Aktif',
+    username_petugas: 'tkababarenglor',
+    password_petugas: 'tkababarenglor'
   },
   {
     id: 'school-3',
@@ -118,7 +122,9 @@ export const schools: School[] = [
     longitude: '110.6150',
     foto_url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&auto=format&fit=crop&q=80',
     logo_url: '',
-    status_aktif: 'Aktif'
+    status_aktif: 'Aktif',
+    username_petugas: 'tkababramen',
+    password_petugas: 'tkababramen'
   },
   {
     id: 'school-4',
@@ -151,7 +157,9 @@ export const schools: School[] = [
     longitude: '110.6100',
     foto_url: 'https://images.unsplash.com/photo-1564981797816-1043d01117da?w=1200&auto=format&fit=crop&q=80',
     logo_url: '',
-    status_aktif: 'Aktif'
+    status_aktif: 'Aktif',
+    username_petugas: 'tkabagunungan',
+    password_petugas: 'tkabagunungan'
   },
   {
     id: 'school-5',

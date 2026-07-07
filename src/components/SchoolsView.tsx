@@ -1141,16 +1141,15 @@ export default function SchoolsView({
                         <label className="block text-[11px] font-semibold text-slate-500 mb-1 font-sans flex items-center justify-between">
                           <span>Username Petugas Sekolah (Khusus)</span>
                           {isPetugas && (
-                            <span className="text-[10px] text-rose-500 font-medium font-sans">Sebab: Hanya Admin</span>
+                            <span className="text-[10px] text-brand-600 font-medium font-sans">Dapat Anda Ubah</span>
                           )}
                         </label>
                         <input
                           type="text"
                           value={formFields.username_petugas || ''}
                           onChange={(e) => setFormFields({ ...formFields, username_petugas: e.target.value })}
-                          disabled={isPetugas}
-                          placeholder={isPetugas ? "Hanya dapat diubah oleh Admin" : "Masukkan username khusus petugas (opsional)"}
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-500 text-slate-700 font-sans font-mono disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                          placeholder="Masukkan username khusus petugas (opsional)"
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-500 text-slate-700 font-sans font-mono"
                         />
                         <p className="text-[10px] text-slate-400 mt-1">
                           Jika kosong, default menggunakan NPSN, Email, atau ID Sekolah.

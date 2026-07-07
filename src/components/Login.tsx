@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApiService } from '../lib/api';
 import { User } from '../types';
 import { Shield, Key, UserCheck, School, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -20,6 +20,18 @@ export default function Login({ onLoginSuccess, appTitle = 'SIM IGABA', appSubti
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [schoolsList, setSchoolsList] = useState<{ id: string, name: string, npsn: string, username_petugas: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/auth/schools')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.schools) {
+          setSchoolsList(data.schools);
+        }
+      })
+      .catch(err => console.error('Failed to fetch auth schools:', err));
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,6 +150,51 @@ export default function Login({ onLoginSuccess, appTitle = 'SIM IGABA', appSubti
               )}
             </button>
           </form>
+
+          {/* Quick Demo Accounts Helper */}
+          <div className="mt-6 pt-5 border-t border-slate-100 space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider font-sans">
+              Bantuan Akun Login & Contoh
+            </h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {/* Super Admin */}
+              <div 
+                onClick={() => prefill('admin', 'adminn')}
+                className="p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/50 flex items-center justify-between text-left transition-colors cursor-pointer group"
+                title="Klik untuk mengisi data login Super Admin"
+              >
+                <div className="min-w-0">
+                  <span className="text-[9px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded uppercase font-sans">Super Admin</span>
+                  <p className="text-xs font-semibold text-slate-700 truncate mt-1">User: admin</p>
+                </div>
+                <span className="text-[10px] text-slate-400 group-hover:text-brand-600 font-medium font-sans flex items-center gap-0.5">
+                  Gunakan <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+
+              {/* Schools List */}
+              {schoolsList.map((sch) => (
+                <div 
+                  key={sch.id}
+                  onClick={() => prefill(sch.username_petugas, sch.username_petugas)}
+                  className="p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/50 flex items-center justify-between text-left transition-colors cursor-pointer group"
+                  title={`Klik untuk mengisi data login Petugas ${sch.name}`}
+                >
+                  <div className="min-w-0 flex-1 pr-2">
+                    <span className="text-[9px] bg-green-50 text-green-600 font-bold px-1.5 py-0.5 rounded uppercase font-sans">
+                      Petugas {sch.name.replace('TK Aisyiyah Bustanul Athfal ', 'ABA ')}
+                    </span>
+                    <p className="text-xs font-semibold text-slate-700 truncate mt-1">
+                      User: <b className="text-slate-950 font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{sch.username_petugas}</b>
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400 group-hover:text-brand-600 font-medium font-sans flex items-center gap-0.5 shrink-0">
+                    Gunakan <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <p className="text-center text-[11px] text-slate-400 mt-6 font-sans">
