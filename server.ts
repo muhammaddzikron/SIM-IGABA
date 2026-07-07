@@ -32,7 +32,14 @@ const DATA_FILE = (() => {
   const isServerless = !!(process.env.VERCEL || process.env.TMPDIR || fs.existsSync('/tmp'));
   if (isServerless) {
     const tmpPath = path.join('/tmp', 'data-store.json');
-    const repoPath = path.join(process.cwd(), 'data-store.json');
+    const repoPath = (() => {
+      try {
+        if (typeof __dirname !== 'undefined' && __dirname) {
+          return path.join(__dirname, '../data-store.json');
+        }
+      } catch (e) {}
+      return path.join(process.cwd(), 'data-store.json');
+    })();
     if (!fs.existsSync(tmpPath) && fs.existsSync(repoPath)) {
       try {
         fs.copyFileSync(repoPath, tmpPath);
