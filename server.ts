@@ -6,7 +6,6 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 
 // Seed data imports
 import {
@@ -46,23 +45,36 @@ const DATA_FILE = (() => {
   return path.join(process.cwd(), 'data-store.json');
 })();
 
+let memoryDbCache: any = null;
+
 // Ensure database file exists
 function loadLocalDatabase() {
+  if (memoryDbCache) {
+    return memoryDbCache;
+  }
+
+  const getInitialDb = () => ({
+    schools: seedSchools,
+    teachers: seedTeachers,
+    students: seedStudents,
+    reports: seedReports,
+    attendanceTeachers: seedAttendanceTeachers,
+    attendanceStudents: seedAttendanceStudents,
+    inventories: seedInventories,
+    districts: seedDistricts,
+    villages: seedVillages,
+    logs: seedLogs,
+    settings: seedSettings
+  });
+
   if (!fs.existsSync(DATA_FILE)) {
-    const initialDb = {
-      schools: seedSchools,
-      teachers: seedTeachers,
-      students: seedStudents,
-      reports: seedReports,
-      attendanceTeachers: seedAttendanceTeachers,
-      attendanceStudents: seedAttendanceStudents,
-      inventories: seedInventories,
-      districts: seedDistricts,
-      villages: seedVillages,
-      logs: seedLogs,
-      settings: seedSettings
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
+    const initialDb = getInitialDb();
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('Failed to write initial db to disk, using memory cache:', e);
+    }
+    memoryDbCache = initialDb;
     return initialDb;
   }
   try {
@@ -113,32 +125,35 @@ function loadLocalDatabase() {
     }
 
     if (updatedLocal) {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2), 'utf-8');
+      try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2), 'utf-8');
+      } catch (e) {
+        console.warn('Failed to write updated db to disk:', e);
+      }
     }
     
+    memoryDbCache = db;
     return db;
   } catch (err) {
     console.error('Error loading database file. Re-initializing...', err);
-    const initialDb = {
-      schools: seedSchools,
-      teachers: seedTeachers,
-      students: seedStudents,
-      reports: seedReports,
-      attendanceTeachers: seedAttendanceTeachers,
-      attendanceStudents: seedAttendanceStudents,
-      inventories: seedInventories,
-      districts: seedDistricts,
-      villages: seedVillages,
-      logs: seedLogs,
-      settings: seedSettings
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
+    const initialDb = getInitialDb();
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('Failed to write re-initialized db to disk:', e);
+    }
+    memoryDbCache = initialDb;
     return initialDb;
   }
 }
 
 function saveLocalDatabase(db: any) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  memoryDbCache = db;
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Failed to save db to disk, using memory cache:', e);
+  }
 }
 
 // Check if Apps Script is configured
@@ -894,6 +909,7 @@ app.post('/api/backup/import', (req, res) => {
 
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
