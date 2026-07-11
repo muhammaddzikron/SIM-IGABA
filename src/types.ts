@@ -73,7 +73,7 @@ export interface Teacher {
   pendidikan: string; // e.g., S1 PAUD, D3
   jurusan: string;
   tmt: string; // Tanggal Mulai Tugas
-  status_guru: 'GTY' | 'GTT' | 'PNS' | 'PPPK' | 'Honor';
+  status_guru: 'Negeri - PPPK' | 'Negeri - Depag' | 'Negeri - Instansi Lain' | 'Guru Bantu' | 'Swasta - GTY' | 'Swasta - GTT WB' | 'Swasta GTT PNS';
   jabatan: string; // Kepala Sekolah, Guru Kelas, Guru Pendamping, dll.
   golongan: string; // e.g., III/a, -
   honor: number; // Bulanan honor

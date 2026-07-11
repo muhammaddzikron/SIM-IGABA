@@ -1735,8 +1735,8 @@ export default function ReportsView({
                             {viewTeachers.map((t, idx) => {
                               const tInfo = teachers.find(x => x.id === t.teacher_id);
                               const totalAbsen = t.sakit + t.izin + t.alpha;
-                              const isNegeri = tInfo?.status_guru === 'PNS' || tInfo?.status_guru === 'PPPK';
-                              const isSwasta = tInfo?.status_guru === 'GTY' || tInfo?.status_guru === 'GTT' || tInfo?.status_guru === 'Honor' || !tInfo?.status_guru;
+                              const isNegeri = !!tInfo?.status_guru?.toLowerCase().includes('negeri') || tInfo?.status_guru === ('PNS' as any) || tInfo?.status_guru === ('PPPK' as any);
+                              const isSwasta = !isNegeri;
                               
                               return (
                                 <tr key={t.id || idx} className="text-slate-800 hover:bg-slate-50">
@@ -1756,7 +1756,7 @@ export default function ReportsView({
                                     {isNegeri ? tInfo?.status_guru : '-'}
                                   </td>
                                   <td className="p-1 border-r border-slate-300 text-center font-mono font-semibold text-brand-800">
-                                    {isSwasta ? (tInfo?.status_guru || 'GTY') : '-'}
+                                    {isSwasta ? (tInfo?.status_guru || 'Swasta - GTY') : '-'}
                                   </td>
                                   <td className="p-1 border-r border-slate-300 text-center font-mono">{tInfo?.golongan || '-'}</td>
                                   <td className="p-1 border-r border-slate-300 text-center font-mono leading-none">{tInfo?.tmt || '-'}</td>

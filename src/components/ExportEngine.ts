@@ -586,7 +586,7 @@ export const ExportEngine = {
     worksheet.getCell('A4').font = { name: 'Arial', size: 9, italic: true };
 
     worksheet.mergeCells('A5:R5');
-    worksheet.getCell('A5').value = '4. Kolom Status Kepegawaian diisi salah satu dari: GTY, GTT, PNS, PPPK, Honor.';
+    worksheet.getCell('A5').value = '4. Kolom Status Kepegawaian diisi salah satu dari: Negeri - PPPK, Negeri - Depag, Negeri - Instansi Lain, Guru Bantu, Swasta - GTY, Swasta - GTT WB, Swasta GTT PNS.';
     worksheet.getCell('A5').font = { name: 'Arial', size: 9, italic: true };
 
     worksheet.addRow([]); // Blank spacer
@@ -638,7 +638,7 @@ export const ExportEngine = {
       'S1',
       'PG-PAUD',
       '2018-07-01',
-      'GTY',
+      'Swasta - GTY',
       'Guru Kelas',
       '-',
       1800000,
@@ -841,14 +841,14 @@ export const ExportEngine = {
           nik,
           nip: row.getCell(3).text?.trim() || '-',
           tempat_lahir: row.getCell(4).text?.trim() || 'Klaten',
-          tanggal_lahir: row.getCell(5).text?.trim() || '1990-01-01',
+          tanggal_lahir: parseExcelDate(row.getCell(5), '1990-01-01'),
           jenis_kelamin: (row.getCell(6).text?.trim() || 'P').toUpperCase().startsWith('L') ? 'L' : 'P',
           alamat: row.getCell(7).text?.trim() || '',
           no_hp: row.getCell(8).text?.trim() || '-',
           email: row.getCell(9).text?.trim() || '-',
           pendidikan: row.getCell(10).text?.trim() || 'S1',
           jurusan: row.getCell(11).text?.trim() || 'PG-PAUD',
-          tmt: row.getCell(12).text?.trim() || '2020-07-01',
+          tmt: parseExcelDate(row.getCell(12), '2020-07-01'),
           status_guru: (row.getCell(13).text?.trim() || 'GTY') as any,
           jabatan: row.getCell(14).text?.trim() || 'Guru Kelas',
           golongan: row.getCell(15).text?.trim() || '-',
@@ -895,7 +895,7 @@ export const ExportEngine = {
           nik,
           nisn: row.getCell(3).text?.trim() || '',
           tempat_lahir: row.getCell(4).text?.trim() || 'Klaten',
-          tanggal_lahir: row.getCell(5).text?.trim() || '2020-01-01',
+          tanggal_lahir: parseExcelDate(row.getCell(5), '2020-01-01'),
           jenis_kelamin: (row.getCell(6).text?.trim() || 'P').toUpperCase().startsWith('L') ? 'L' : 'P',
           nama_ayah: row.getCell(7).text?.trim() || '-',
           nama_ibu: row.getCell(8).text?.trim() || '-',
@@ -1132,3 +1132,116 @@ export const ExportEngine = {
     pdf.save(`Profil_Sekolah_${schoolName.replace(/\s+/g, '_')}.pdf`);
   }
 };
+
+// Robust helper to parse and format dates from Excel cell values to standard YYYY-MM-DD
+export function parseExcelDate(cell: any, defaultVal: string): string {
+  if (!cell) return defaultVal;
+  let val = cell.value;
+
+  // Handle rich object value
+  if (val && typeof val === 'object' && 'result' in val) {
+    val = val.result;
+  }
+
+  // 1. If it's already a JS Date object
+  if (val instanceof Date) {
+    return formatDateToString(val);
+  }
+
+  // 2. If it's a number (Excel serial date)
+  if (typeof val === 'number') {
+    if (val > 1 && val < 100000) {
+      try {
+        const dateOffset = val > 60 ? 25569 : 25568;
+        const date = new Date((val - dateOffset) * 86400 * 1000);
+        if (!isNaN(date.getTime())) {
+          return formatDateToString(date);
+        }
+      } catch (e) {
+        // ignore and fallback
+      }
+    }
+    if (val > 100000000000) {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        return formatDateToString(d);
+      }
+    }
+  }
+
+  // 3. If it's a string
+  const text = cell.text?.trim() || '';
+  if (!text) return defaultVal;
+
+  // Try parsing direct YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  // Try parsing DD/MM/YYYY or DD-MM-YYYY
+  const dmYRegex = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/;
+  const dmYMatch = text.match(dmYRegex);
+  if (dmYMatch) {
+    const day = dmYMatch[1].padStart(2, '0');
+    const month = dmYMatch[2].padStart(2, '0');
+    const year = dmYMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Try parsing YYYY/MM/DD
+  const YmdRegex = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/;
+  const YmdMatch = text.match(YmdRegex);
+  if (YmdMatch) {
+    const year = YmdMatch[1];
+    const month = YmdMatch[2].padStart(2, '0');
+    const day = YmdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Try parsing Indonesian/English textual month formats like "12 Mei 1980" or "12 May 1980"
+  const monthsIndo = [
+    /januari/i, /februari/i, /maret/i, /april/i, /mei/i, /juni/i,
+    /juli/i, /agustus/i, /september/i, /oktober/i, /november/i, /desember/i
+  ];
+  const monthsEnglish = [
+    /january/i, /february/i, /march/i, /april/i, /may/i, /june/i,
+    /july/i, /august/i, /september/i, /october/i, /november/i, /december/i
+  ];
+
+  let cleanedText = text.toLowerCase().replace(/\s+/g, ' ');
+  for (let i = 0; i < 12; i++) {
+    if (monthsIndo[i].test(cleanedText) || monthsEnglish[i].test(cleanedText)) {
+      const numbers = cleanedText.match(/\d+/g);
+      if (numbers && numbers.length >= 2) {
+        let day = '';
+        let year = '';
+        if (numbers[0].length <= 2 && numbers[1].length === 4) {
+          day = numbers[0].padStart(2, '0');
+          year = numbers[1];
+        } else if (numbers[1].length <= 2 && numbers[0].length === 4) {
+          day = numbers[1].padStart(2, '0');
+          year = numbers[0];
+        }
+        if (day && year) {
+          const monthStr = String(i + 1).padStart(2, '0');
+          return `${year}-${monthStr}-${day}`;
+        }
+      }
+    }
+  }
+
+  // Fallback: standard JS Date parsing
+  const parsedDate = new Date(text);
+  if (!isNaN(parsedDate.getTime())) {
+    return formatDateToString(parsedDate);
+  }
+
+  return defaultVal;
+}
+
+export function formatDateToString(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}

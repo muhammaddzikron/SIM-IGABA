@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Student, School, User } from '../types';
 import {
   Search,
@@ -22,7 +23,13 @@ import {
   Upload,
   FileSpreadsheet,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  Printer,
+  User as UserIcon,
+  Phone,
+  Mail,
+  MapPin
 } from 'lucide-react';
 import { ExportEngine } from './ExportEngine';
 import { ApiService } from '../lib/api';
@@ -58,6 +65,7 @@ export default function StudentsView({
   const [selectedSemester, setSelectedSemester] = useState('ALL');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [selectedStudentForView, setSelectedStudentForView] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -191,9 +199,41 @@ export default function StudentsView({
     setIsFormOpen(true);
   };
 
+  // Helper to normalize any date string format to YYYY-MM-DD for form binding
+  const normalizeDateToYMD = (dateStr: string | undefined | null): string => {
+    if (!dateStr) return '';
+    const str = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    // DD/MM/YYYY or DD-MM-YYYY
+    const match1 = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (match1) {
+      return `${match1[3]}-${match1[2].padStart(2, '0')}-${match1[1].padStart(2, '0')}`;
+    }
+
+    // YYYY/MM/DD
+    const match2 = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+    if (match2) {
+      return `${match2[1]}-${match2[2].padStart(2, '0')}-${match2[3].padStart(2, '0')}`;
+    }
+
+    // JS Date
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  };
+
   const openEditForm = (student: Student) => {
     setEditingStudent(student);
-    setFormFields({ ...student });
+    setFormFields({
+      ...student,
+      tanggal_lahir: normalizeDateToYMD(student.tanggal_lahir)
+    });
     setIsFormOpen(true);
   };
 
@@ -423,6 +463,14 @@ export default function StudentsView({
               </span>
 
               <div className="flex items-center gap-1">
+                <button
+                  id={`view-student-${student.id}`}
+                  onClick={() => setSelectedStudentForView(student)}
+                  className="p-1.5 bg-slate-50 hover:bg-brand-50 text-slate-500 hover:text-brand-700 rounded-lg border border-slate-200 hover:border-brand-100 transition-colors cursor-pointer"
+                  title="Lihat Profil Siswa"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
                 {(isSuperAdmin || isAdmin || (isPetugas && student.school_id === user.school_id)) && (
                   <button
                     id={`edit-student-${student.id}`}
@@ -455,9 +503,9 @@ export default function StudentsView({
       </div>
 
       {/* CREATE / EDIT SISWA MODAL */}
-      {isFormOpen && (
-        <div id="student-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 overflow-hidden">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:max-w-2xl shadow-2xl animate-fade-in border-0 sm:border border-slate-100 flex flex-col relative overflow-hidden">
+      {isFormOpen && createPortal(
+        <div id="student-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+          <div className="bg-white w-full max-h-[85vh] sm:max-h-[90vh] rounded-2xl sm:rounded-3xl sm:max-w-2xl shadow-2xl animate-fade-in border border-slate-100 flex flex-col relative overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
               <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2 text-brand-700">
                 <GraduationCap className="w-5 h-5" />
@@ -787,11 +835,12 @@ export default function StudentsView({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM CONFIRM DELETE MODAL */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
@@ -822,13 +871,14 @@ export default function StudentsView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EXCEL IMPORT MODAL */}
-      {isImportOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col my-8 max-h-[85vh]">
+      {isImportOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -985,7 +1035,286 @@ export default function StudentsView({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* DETAILED STUDENT PROFILE VIEW & PRINT/EXPORT MODAL */}
+      {selectedStudentForView && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden no-print animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 relative no-print flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[90vh]">
+            
+            {/* Modal Controls Bar */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-brand-600" />
+                <h3 className="font-bold text-slate-800 text-sm font-sans">Detail Profil Lengkap Murid</h3>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Print button */}
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer font-sans border border-brand-100"
+                  title="Cetak Profil / Save as PDF melalui browser"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Profil</span>
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudentForView(null)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Print Styling Injection */}
+            <style dangerouslySetInnerHTML={{__html: `
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #student-print-profile-content, #student-print-profile-content * {
+                  visibility: visible !important;
+                }
+                #student-print-profile-content {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 15mm !important;
+                  background: white !important;
+                  color: black !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}} />
+
+            {/* Printable & Scrollable Content Area */}
+            <div id="student-print-profile-content" className="p-6 sm:p-8 space-y-6 bg-white overflow-y-auto flex-1 no-scrollbar text-xs">
+              
+              {/* Formal Header for Printing */}
+              <div className="flex items-center gap-4 border-b-2 border-slate-800 pb-4">
+                <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0">
+                  PD
+                </div>
+                <div className="space-y-0.5">
+                  <h2 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase font-sans">
+                    SISTEM INFORMASI MANAJEMEN PENDIDIKAN
+                  </h2>
+                  <h1 className="text-sm font-black tracking-tight text-slate-800 uppercase font-sans">
+                    DATA BIO-PROFIL PESERTA DIDIK / MURID
+                  </h1>
+                  <p className="text-[10px] text-slate-500 font-sans">
+                    {getSchoolName(selectedStudentForView.school_id)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Main Profile Showcase */}
+              <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-start bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                {/* Icon / Avatar */}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                  <GraduationCap className="w-10 h-10 text-brand-500" />
+                </div>
+
+                <div className="min-w-0 flex-1 text-center sm:text-left space-y-2">
+                  <div>
+                    <span className={`inline-flex items-center text-[10px] font-bold uppercase px-3 py-1 rounded-full mb-1 border ${
+                      selectedStudentForView.jenis_kelamin === 'L' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-pink-50 text-pink-700 border-pink-200'
+                    }`}>
+                      {selectedStudentForView.jenis_kelamin === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)'}
+                    </span>
+                    <h2 className="text-lg font-black text-slate-800 font-sans">
+                      {selectedStudentForView.nama}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-sans">
+                      {getSchoolName(selectedStudentForView.school_id)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[11px] text-slate-600 font-sans">
+                    <span className="bg-slate-100 border border-slate-200/50 px-2.5 py-1 rounded-lg">
+                      NISN: <strong className="font-mono text-slate-800">{selectedStudentForView.nisn || '-'}</strong>
+                    </span>
+                    <span className="bg-slate-100 border border-slate-200/50 px-2.5 py-1 rounded-lg">
+                      NIK: <strong className="font-mono text-slate-800">{selectedStudentForView.nik || '-'}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+                
+                {/* 1. DATA IDENTITAS DIRI */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-[10px] text-brand-700">
+                    <UserIcon className="w-4 h-4" />
+                    <span>Identitas Pribadi</span>
+                  </h4>
+                  <div className="space-y-2.5 text-[11px]">
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Nama Lengkap</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.nama}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">NIK</span>
+                      <span className="col-span-2 font-mono font-semibold text-slate-800">{selectedStudentForView.nik}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">NISN</span>
+                      <span className="col-span-2 font-mono font-semibold text-slate-800">{selectedStudentForView.nisn || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Tempat, Tgl Lahir</span>
+                      <span className="col-span-2 font-semibold text-slate-800">
+                        {selectedStudentForView.tempat_lahir}, {selectedStudentForView.tanggal_lahir}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Jenis Kelamin</span>
+                      <span className="col-span-2 font-semibold text-slate-800">
+                        {selectedStudentForView.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Agama</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.agama || 'Islam'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. DATA ORANG TUA / KELUARGA */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-[10px] text-brand-700">
+                    <UserCheck className="w-4 h-4" />
+                    <span>Keluarga / Wali</span>
+                  </h4>
+                  <div className="space-y-2.5 text-[11px]">
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Nama Ayah</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.nama_ayah || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Nama Ibu</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.nama_ibu || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Anak Ke</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.anak_ke || 1}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Jumlah Saudara</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.jumlah_saudara || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. ALAMAT TEMPAT TINGGAL */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-[10px] text-brand-700">
+                    <Home className="w-4 h-4" />
+                    <span>Alamat Domisili</span>
+                  </h4>
+                  <div className="space-y-2.5 text-[11px]">
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Alamat</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.alamat || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">RT / RW</span>
+                      <span className="col-span-2 font-semibold text-slate-800">RT {selectedStudentForView.rt || '01'} / RW {selectedStudentForView.rw || '01'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Kelurahan</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.kelurahan || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Kecamatan</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.kecamatan || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Kabupaten</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.kabupaten || 'Klaten'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Provinsi</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.provinsi || 'Jawa Tengah'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. STATUS AKADEMIK / SEKOLAH */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-[10px] text-brand-700">
+                    <Layers className="w-4 h-4" />
+                    <span>Akademik / Sekolah</span>
+                  </h4>
+                  <div className="space-y-2.5 text-[11px]">
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Status Aktif</span>
+                      <span className="col-span-2 font-bold text-emerald-700">{selectedStudentForView.status_aktif || 'Aktif'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Tahun Masuk</span>
+                      <span className="col-span-2 font-mono font-semibold text-slate-800">{selectedStudentForView.tahun_masuk || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Thn Pelajaran</span>
+                      <span className="col-span-2 font-mono font-semibold text-slate-800">{selectedStudentForView.tahun_pelajaran || '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 py-1 border-b border-slate-50">
+                      <span className="text-slate-400 font-medium">Semester</span>
+                      <span className="col-span-2 font-semibold text-slate-800">{selectedStudentForView.semester || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Tanda Tangan Ketetapan */}
+              <div className="pt-12 grid grid-cols-2 gap-4 text-center text-[11px] font-sans">
+                <div></div>
+                <div className="space-y-16">
+                  <div>
+                    <p className="text-slate-500">Klaten, {new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                    <p className="font-bold text-slate-800">Kepala Sekolah</p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 underline">......................................................</p>
+                    <p className="text-slate-400 text-[10px]">NIP. ..........................................</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Actions Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end bg-slate-50/50 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedStudentForView(null)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold font-sans cursor-pointer transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

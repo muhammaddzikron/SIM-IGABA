@@ -4,7 +4,9 @@
  */
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Teacher, School, User } from '../types';
+import { getDirectDriveImageUrl } from '../lib/api';
 import {
   Search,
   Plus,
@@ -25,7 +27,9 @@ import {
   Upload,
   FileSpreadsheet,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  Printer
 } from 'lucide-react';
 import { ExportEngine } from './ExportEngine';
 import { ApiService } from '../lib/api';
@@ -61,6 +65,7 @@ export default function TeachersView({
   const [selectedSemester, setSelectedSemester] = useState('ALL');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [selectedTeacherForView, setSelectedTeacherForView] = useState<Teacher | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -131,7 +136,7 @@ export default function TeachersView({
     pendidikan: 'S1',
     jurusan: 'PG-PAUD',
     tmt: '',
-    status_guru: 'GTY',
+    status_guru: 'Swasta - GTY',
     jabatan: 'Guru Kelas',
     golongan: '-',
     honor: 1500000,
@@ -182,7 +187,7 @@ export default function TeachersView({
       pendidikan: 'S1',
       jurusan: 'PG-PAUD',
       tmt: '2020-07-01',
-      status_guru: 'GTY',
+      status_guru: 'Swasta - GTY',
       jabatan: 'Guru Kelas',
       golongan: '-',
       honor: 1800000,
@@ -197,9 +202,42 @@ export default function TeachersView({
     setIsFormOpen(true);
   };
 
+  // Helper to normalize any date string format to YYYY-MM-DD for form binding
+  const normalizeDateToYMD = (dateStr: string | undefined | null): string => {
+    if (!dateStr) return '';
+    const str = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    // DD/MM/YYYY or DD-MM-YYYY
+    const match1 = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (match1) {
+      return `${match1[3]}-${match1[2].padStart(2, '0')}-${match1[1].padStart(2, '0')}`;
+    }
+
+    // YYYY/MM/DD
+    const match2 = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+    if (match2) {
+      return `${match2[1]}-${match2[2].padStart(2, '0')}-${match2[3].padStart(2, '0')}`;
+    }
+
+    // JS Date
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  };
+
   const openEditForm = (teacher: Teacher) => {
     setEditingTeacher(teacher);
-    setFormFields({ ...teacher });
+    setFormFields({
+      ...teacher,
+      tanggal_lahir: normalizeDateToYMD(teacher.tanggal_lahir),
+      tmt: normalizeDateToYMD(teacher.tmt)
+    });
     setIsFormOpen(true);
   };
 
@@ -211,10 +249,11 @@ export default function TeachersView({
     const status = formFields.status_guru;
     const computedFields = {
       ...formFields,
-      gty: status === 'GTY',
-      gtt: status === 'GTT',
-      pns: status === 'PNS',
-      pppk: status === 'PPPK'
+      gty: status === 'Swasta - GTY',
+      gtt: status === 'Swasta - GTT WB' || status === 'Swasta GTT PNS' || status === 'Guru Bantu',
+      pns: status?.toLowerCase().includes('pns') || status === 'Negeri - Depag' || status === 'Negeri - Instansi Lain',
+      pppk: status === 'Negeri - PPPK',
+      foto_url: getDirectDriveImageUrl(formFields.foto_url)
     };
 
     try {
@@ -294,11 +333,13 @@ export default function TeachersView({
             className="border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-xs text-slate-600 focus:outline-none font-sans"
           >
             <option value="ALL">Semua Kepegawaian</option>
-            <option value="GTY">Guru Tetap Yayasan (GTY)</option>
-            <option value="GTT">Guru Tidak Tetap (GTT)</option>
-            <option value="PNS">Pegawai Negeri Sipil (PNS)</option>
-            <option value="PPPK">Pegawai Pemerintah (PPPK)</option>
-            <option value="Honor">Honor</option>
+            <option value="Negeri - PPPK">Negeri - PPPK</option>
+            <option value="Negeri - Depag">Negeri - Depag</option>
+            <option value="Negeri - Instansi Lain">Negeri - Instansi Lain</option>
+            <option value="Guru Bantu">Guru Bantu</option>
+            <option value="Swasta - GTY">Swasta - GTY</option>
+            <option value="Swasta - GTT WB">Swasta - GTT WB</option>
+            <option value="Swasta GTT PNS">Swasta GTT PNS</option>
           </select>
 
           <select
@@ -382,14 +423,18 @@ export default function TeachersView({
           <div
             key={teacher.id}
             id={`teacher-card-${teacher.id}`}
-            className="bg-white rounded-3xl border border-slate-200/60 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative animate-fade-in"
+            className="bg-white rounded-3xl border border-slate-200/60 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative animate-fade-in group/card"
           >
-            {/* Upper details */}
-            <div className="space-y-4">
+            {/* Upper details (clickable to view profile) */}
+            <div 
+              onClick={() => setSelectedTeacherForView(teacher)}
+              className="space-y-4 cursor-pointer"
+              title="Klik untuk melihat profil lengkap"
+            >
               <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-700 border border-brand-100 flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-700 border border-brand-100 flex items-center justify-center shrink-0 overflow-hidden group-hover/card:scale-105 transition-transform">
                   {teacher.foto_url ? (
-                    <img src={teacher.foto_url} alt={teacher.nama} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    <img src={getDirectDriveImageUrl(teacher.foto_url)} alt={teacher.nama} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   ) : (
                     <UserIcon className="w-6 h-6" />
                   )}
@@ -399,7 +444,7 @@ export default function TeachersView({
                   <span className="inline-flex items-center text-[9px] font-bold font-sans uppercase bg-brand-50 border border-brand-100 text-brand-700 px-2.5 py-0.5 rounded-full mb-1">
                     {teacher.status_guru}
                   </span>
-                  <h3 className="font-bold text-slate-800 text-sm leading-tight font-sans truncate">
+                  <h3 className="font-bold text-slate-800 text-sm leading-tight font-sans truncate group-hover/card:text-brand-700 transition-colors">
                     {teacher.nama}
                   </h3>
                   <p className="text-[10px] text-slate-400 mt-1 font-sans font-medium truncate">
@@ -467,6 +512,14 @@ export default function TeachersView({
               </span>
 
               <div className="flex items-center gap-1">
+                <button
+                  id={`view-teacher-${teacher.id}`}
+                  onClick={() => setSelectedTeacherForView(teacher)}
+                  className="p-1.5 bg-slate-50 hover:bg-brand-50 text-slate-500 hover:text-brand-700 rounded-lg border border-slate-200 hover:border-brand-100 transition-colors cursor-pointer"
+                  title="Lihat Profil Guru"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
                 {(isSuperAdmin || isAdmin || (isPetugas && teacher.school_id === user.school_id)) && (
                   <button
                     id={`edit-teacher-${teacher.id}`}
@@ -499,9 +552,9 @@ export default function TeachersView({
       </div>
 
       {/* CREATE / EDIT GURU MODAL */}
-      {isFormOpen && (
-        <div id="teacher-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 overflow-hidden">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:max-w-2xl shadow-2xl animate-fade-in border-0 sm:border border-slate-100 flex flex-col relative overflow-hidden">
+      {isFormOpen && createPortal(
+        <div id="teacher-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+          <div className="bg-white w-full max-h-[85vh] sm:max-h-[90vh] rounded-2xl sm:rounded-3xl sm:max-w-2xl shadow-2xl animate-fade-in border border-slate-100 flex flex-col relative overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
               <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2 text-brand-700">
                 <UserIcon className="w-5 h-5" />
@@ -619,15 +672,17 @@ export default function TeachersView({
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Status Guru</label>
                   <select
-                    value={formFields.status_guru || 'GTY'}
+                    value={formFields.status_guru || 'Swasta - GTY'}
                     onChange={(e) => setFormFields({ ...formFields, status_guru: e.target.value as any })}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700"
                   >
-                    <option value="GTY">GTY (Guru Tetap Yayasan)</option>
-                    <option value="GTT">GTT (Guru Tidak Tetap)</option>
-                    <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
-                    <option value="PPPK">PPPK</option>
-                    <option value="Honor">Honor</option>
+                    <option value="Negeri - PPPK">Negeri - PPPK</option>
+                    <option value="Negeri - Depag">Negeri - Depag</option>
+                    <option value="Negeri - Instansi Lain">Negeri - Instansi Lain</option>
+                    <option value="Guru Bantu">Guru Bantu</option>
+                    <option value="Swasta - GTY">Swasta - GTY (Guru Tetap Yayasan)</option>
+                    <option value="Swasta - GTT WB">Swasta - GTT WB (Guru Tidak Tetap Wilayah Binaan)</option>
+                    <option value="Swasta GTT PNS">Swasta GTT PNS (Guru Tidak Tetap PNS)</option>
                   </select>
                 </div>
 
@@ -789,11 +844,12 @@ export default function TeachersView({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM CONFIRM DELETE MODAL */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
@@ -824,12 +880,13 @@ export default function TeachersView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* EXCEL IMPORT MODAL */}
-      {isImportOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col my-8 max-h-[85vh]">
+      {isImportOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -986,7 +1043,263 @@ export default function TeachersView({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* DETAILED TEACHER PROFILE VIEW & PRINT/EXPORT MODAL */}
+      {selectedTeacherForView && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden no-print animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 relative no-print flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[90vh]">
+            
+            {/* Modal Controls Bar */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0">
+              <div className="flex items-center gap-2">
+                <UserIcon className="w-5 h-5 text-brand-600" />
+                <h3 className="font-bold text-slate-800 text-sm font-sans">Detail Profil Lengkap Guru</h3>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Print button */}
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer font-sans border border-brand-100"
+                  title="Cetak Profil / Save as PDF melalui browser"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Profil</span>
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeacherForView(null)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Print Styling Injection */}
+            <style dangerouslySetInnerHTML={{__html: `
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #teacher-print-profile-content, #teacher-print-profile-content * {
+                  visibility: visible !important;
+                }
+                #teacher-print-profile-content {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 15mm !important;
+                  background: white !important;
+                  color: black !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}} />
+
+            {/* Printable & Scrollable Content Area */}
+            <div id="teacher-print-profile-content" className="p-6 sm:p-8 space-y-6 bg-white overflow-y-auto flex-1 no-scrollbar">
+              
+              {/* Formal Header for Printing / Corporate Look */}
+              <div className="flex items-center gap-4 border-b-2 border-slate-850 pb-4">
+                <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0">
+                  {selectedTeacherForView.status_guru?.substring(0, 3).toUpperCase() || 'GT'}
+                </div>
+                <div className="space-y-0.5">
+                  <h2 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase font-sans">
+                    SISTEM INFORMASI MANAJEMEN PENDIDIKAN
+                  </h2>
+                  <h1 className="text-sm font-black tracking-tight text-slate-800 uppercase font-sans">
+                    DATA BIO-PROFIL GURU / PENDIDIK
+                  </h1>
+                  <p className="text-[10px] text-slate-500 font-sans">
+                    {getSchoolName(selectedTeacherForView.school_id)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Main Profile Showcase */}
+              <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-start bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                {/* Photo / Avatar */}
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                  {selectedTeacherForView.foto_url ? (
+                    <img src={getDirectDriveImageUrl(selectedTeacherForView.foto_url)} alt={selectedTeacherForView.nama} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-12 h-12 text-brand-300" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1 text-center sm:text-left space-y-2">
+                  <div>
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase bg-brand-100 border border-brand-200 text-brand-800 px-3 py-1 rounded-full mb-1">
+                      {selectedTeacherForView.status_guru} ({selectedTeacherForView.jabatan})
+                    </span>
+                    <h2 className="text-lg font-black text-slate-800 font-sans">
+                      {selectedTeacherForView.nama}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-sans">
+                      {getSchoolName(selectedTeacherForView.school_id)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[11px] text-slate-600 font-sans">
+                    <span className="bg-slate-100 border border-slate-200/50 px-2.5 py-1 rounded-lg">
+                      NIK: <strong className="font-mono">{selectedTeacherForView.nik}</strong>
+                    </span>
+                    <span className="bg-slate-100 border border-slate-200/50 px-2.5 py-1 rounded-lg">
+                      NIP: <strong className="font-mono">{selectedTeacherForView.nip || '-'}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Section A: Kepegawaian & Tugas */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-sans flex items-center gap-1 border-b border-slate-100 pb-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Kepegawaian & Tugas</span>
+                  </h4>
+                  <div className="space-y-2 text-xs font-sans text-slate-700">
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Status Kepegawaian</span>
+                      <span className="font-bold text-slate-800">{selectedTeacherForView.status_guru}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Jabatan Kerja</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.jabatan}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Golongan</span>
+                      <span className="font-semibold text-slate-800 font-mono">{selectedTeacherForView.golongan || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Tanggal TMT (Mulai Tugas)</span>
+                      <span className="font-semibold text-slate-800 font-mono">{selectedTeacherForView.tmt || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Tahun Pelajaran Basis</span>
+                      <span className="font-semibold text-slate-800 font-mono">{selectedTeacherForView.tahun_pelajaran || '2025/2026'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Semester Basis</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.semester || 'Ganjil'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section B: Data Personal */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-sans flex items-center gap-1 border-b border-slate-100 pb-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Informasi Pribadi</span>
+                  </h4>
+                  <div className="space-y-2 text-xs font-sans text-slate-700">
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Jenis Kelamin</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.jenis_kelamin === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Tempat Lahir</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.tempat_lahir || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Tanggal Lahir</span>
+                      <span className="font-semibold text-slate-800 font-mono">{selectedTeacherForView.tanggal_lahir || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Pendidikan Terakhir</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.pendidikan || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Jurusan / Spesialisasi</span>
+                      <span className="font-semibold text-slate-800">{selectedTeacherForView.jurusan || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section C: Kontak & Domisili */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-sans flex items-center gap-1 border-b border-slate-100 pb-1.5">
+                    <Phone className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Hubungan & Kontak</span>
+                  </h4>
+                  <div className="space-y-2 text-xs font-sans text-slate-700">
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Nomor HP / WhatsApp</span>
+                      <span className="font-semibold text-slate-800 font-mono">{selectedTeacherForView.no_hp || '-'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100/50">
+                      <span className="text-slate-400">Email</span>
+                      <span className="font-semibold text-slate-800 font-mono truncate">{selectedTeacherForView.email || '-'}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-slate-400 block">Alamat Tinggal Lengkap</span>
+                      <span className="font-semibold text-slate-800 block bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed text-[11px]">{selectedTeacherForView.alamat || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section D: Finansial & Gaji */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-sans flex items-center gap-1 border-b border-slate-100 pb-1.5">
+                    <Layers className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Kesejahteraan & Keuangan</span>
+                  </h4>
+                  <div className="bg-brand-50/50 border border-brand-100 p-4 rounded-2xl text-center space-y-1">
+                    <p className="text-[10px] text-brand-600 uppercase font-bold tracking-wider">Estimasi Honorarium Bulanan</p>
+                    <p className="text-xl font-black text-brand-800 font-sans">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(selectedTeacherForView.honor || 0)}
+                    </p>
+                    <p className="text-[9px] text-slate-400 italic font-medium">Sistem Penggajian internal Pimpinan Daerah 'Aisyiyah.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/80 no-print">
+              <button
+                type="button"
+                onClick={() => setSelectedTeacherForView(null)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold font-sans cursor-pointer transition-colors"
+              >
+                Tutup
+              </button>
+
+              {(isSuperAdmin || isAdmin || (isPetugas && selectedTeacherForView.school_id === user.school_id)) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = selectedTeacherForView;
+                    setSelectedTeacherForView(null);
+                    openEditForm(t);
+                  }}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold font-sans flex items-center gap-1.5 cursor-pointer shadow-sm shadow-brand-600/10 transition-colors"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Profil Guru</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

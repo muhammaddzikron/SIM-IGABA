@@ -52,6 +52,58 @@ const DATA_FILE = (() => {
   return path.join(process.cwd(), 'data-store.json');
 })();
 
+function getDefaultUsername(school: any): string {
+  if (school.username_petugas) return school.username_petugas;
+
+  let name = (school.name || '').toLowerCase();
+
+  // First check if there's a hardcoded ID match from original mock data just to preserve original accounts
+  if (school.id === 'school-1') return 'tkabagergunung';
+  if (school.id === 'school-2') return 'tkababarenglor';
+  if (school.id === 'school-3') return 'tkababramen';
+  if (school.id === 'school-4') return 'tkabagunungan';
+
+  // Specific hardcoded checks for backwards compatibility
+  if (name.includes('gergunung') && (name.includes('ba') || name.includes('tk') || name.includes('aba')) && !name.includes('gergunung i') && !name.includes('gergunung ii') && !name.includes('gergunung 1') && !name.includes('gergunung 2')) {
+    return 'tkabagergunung';
+  }
+  if (name.includes('bareng') || name.includes('lor')) return 'tkababarenglor';
+  if (name.includes('bramen')) return 'tkababramen';
+
+  // Normalize school prefix type: "kb", "ba", "tk"
+  let typePrefix = 'tkaba'; // default
+  if (name.includes('kb ') || name.includes('kelompok bermain')) {
+    typePrefix = 'kb';
+  } else if (name.includes('ba ') || name.includes('bustanul') || name.includes('bustanul athfal')) {
+    typePrefix = 'ba';
+  } else if (name.includes('tk ') || name.includes('aba ')) {
+    typePrefix = 'tkaba';
+  }
+
+  // Remove common prefixes and structural words
+  let cleaned = name
+    .replace(/kelompok bermain/g, '')
+    .replace(/bustanul athfal/g, '')
+    .replace(/aisyiyah/g, '')
+    .replace(/bustanul/g, '')
+    .replace(/athfal/g, '')
+    .replace(/aba/g, '')
+    .replace(/\bba\b/g, '')
+    .replace(/\bkb\b/g, '')
+    .replace(/\btk\b/g, '')
+    .replace(/['’]/g, ''); // strip single quotes
+
+  // Remove any non-alphanumeric except spaces, then clean spaces
+  cleaned = cleaned.replace(/[^a-z0-9\s]/g, '').trim();
+
+  // Replace spaces with nothing for a compact username
+  let words = cleaned.split(/\s+/).filter(Boolean);
+  let joinedWords = words.join('');
+
+  let usernameResult = typePrefix + joinedWords;
+  return usernameResult || 'tkabapetugas';
+}
+
 let memoryDbCache: any = null;
 
 // Ensure database file exists
@@ -110,41 +162,39 @@ function loadLocalDatabase() {
     
     // Self-healing: Ensure all seed schools exist in the schools list
     if (db.schools) {
-      const getDefaultUsername = (school: any): string => {
-        if (school.id === 'school-1') return 'tkabagergunung';
-        if (school.id === 'school-2') return 'tkababarenglor';
-        if (school.id === 'school-3') return 'tkababramen';
-        if (school.id === 'school-4') return 'tkabagunungan';
-
-        let name = (school.name || '').toLowerCase();
-        if (name.includes('gergunung')) return 'tkabagergunung';
-        if (name.includes('bareng') || name.includes('lor')) return 'tkababarenglor';
-        if (name.includes('bramen')) return 'tkababramen';
-        if (name.includes('gunungan')) return 'tkabagunungan';
-
-        let cleaned = name
-          .replace(/aisyiyah/g, '')
-          .replace(/bustanul/g, '')
-          .replace(/athfal/g, '')
-          .replace(/aba/g, '')
-          .replace(/[^a-z0-9]/g, '');
-        if (!cleaned.startsWith('tk')) {
-          cleaned = 'tkaba' + cleaned;
-        } else if (cleaned.startsWith('tk') && !cleaned.startsWith('tkaba')) {
-          cleaned = cleaned.replace(/^tk/, 'tkaba');
-        }
-        return cleaned || 'tkabapetugas';
-      };
-
-      // Apply credentials to existing schools in DB if missing
+      // Apply credentials and default properties to existing schools in DB if missing
       for (const s of db.schools) {
         let changed = false;
         if (!s.username_petugas) {
           s.username_petugas = getDefaultUsername(s);
           changed = true;
         }
-        if (!s.password_petugas) {
-          s.password_petugas = s.username_petugas;
+        if (!s.password_petugas || s.password_petugas === s.username_petugas) {
+          s.password_petugas = 'petugas';
+          changed = true;
+        }
+        if (!s.status_aktif) {
+          s.status_aktif = 'Aktif';
+          changed = true;
+        }
+        if (s.logo_url === undefined) {
+          s.logo_url = '';
+          changed = true;
+        }
+        if (s.ranting_aisyiyah === undefined) {
+          s.ranting_aisyiyah = '';
+          changed = true;
+        }
+        if (s.ketua_ranting === undefined) {
+          s.ketua_ranting = '';
+          changed = true;
+        }
+        if (s.ketua_pda === undefined) {
+          s.ketua_pda = '';
+          changed = true;
+        }
+        if (s.ketua_pca === undefined) {
+          s.ketua_pca = '';
           changed = true;
         }
         if (changed) {
@@ -158,8 +208,8 @@ function loadLocalDatabase() {
           if (!filledSchool.username_petugas) {
             filledSchool.username_petugas = getDefaultUsername(filledSchool);
           }
-          if (!filledSchool.password_petugas) {
-            filledSchool.password_petugas = filledSchool.username_petugas;
+          if (!filledSchool.password_petugas || filledSchool.password_petugas === filledSchool.username_petugas) {
+            filledSchool.password_petugas = 'petugas';
           }
           db.schools.push(filledSchool);
           updatedLocal = true;
@@ -210,6 +260,28 @@ function saveLocalDatabase(db: any) {
   } catch (e) {
     console.warn('Failed to save db to disk, using memory cache:', e);
   }
+}
+
+function getDirectDriveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.includes('drive.google.com') || trimmed.includes('docs.google.com')) {
+    // Match /d/[FILE_ID]
+    const dMatch = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (dMatch && dMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${dMatch[1]}`;
+    }
+
+    // Match id=[FILE_ID] query param
+    const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+    if (idMatch && idMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    }
+  }
+
+  return trimmed;
 }
 
 // Helper to get effective settings with header overrides for serverless environments (Vercel)
@@ -330,7 +402,7 @@ function writeAuditLog(user: string, action: string, details: string) {
 // ----------------------------------------
 
 // Auth Login
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -397,6 +469,36 @@ app.post('/api/auth/login', (req, res) => {
     matchingSchool = db.schools.find((s: any) => s.id === 'school-4') || db.schools[0];
   }
 
+  // 4. Try syncing schools from Google Sheets to see if credentials changed there
+  if (!matchingSchool) {
+    try {
+      console.log(`[Login Auth] Local credentials check failed. Syncing from Google Sheets...`);
+      const appsScriptSheet = getAppsScriptSheetName('schools');
+      const scriptData = await proxyToAppsScript('list', appsScriptSheet, undefined, undefined, req);
+      if (Array.isArray(scriptData) && scriptData.length > 0) {
+        db.schools = scriptData;
+        saveLocalDatabase(db);
+        
+        // Re-try finding matching school with newly synced data
+        matchingSchool = db.schools.find((s: any) => {
+          const schoolPass = s.password_petugas || petugasPass;
+          const customUser = s.username_petugas ? s.username_petugas.trim().toLowerCase() : '';
+          const isMatchingUsername = (customUser && username.toLowerCase() === customUser) ||
+                                     username.toLowerCase() === s.npsn.toLowerCase() || 
+                                     username.toLowerCase() === s.email.toLowerCase() ||
+                                     username.toLowerCase() === s.id.toLowerCase();
+          return isMatchingUsername && password === schoolPass;
+        });
+
+        if (!matchingSchool && username.toLowerCase() === 'petugas') {
+          matchingSchool = db.schools.find((s: any) => s.password_petugas && s.password_petugas === password);
+        }
+      }
+    } catch (sheetErr: any) {
+      console.log(`Failed to fetch schools from Google Sheets on login fallback: ${sheetErr.message}`);
+    }
+  }
+
   if (matchingSchool) {
     const sessionUser = {
       id: `petugas-${matchingSchool.id}`,
@@ -416,14 +518,27 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // Auth schools list for login helper
-app.get('/api/auth/schools', (req, res) => {
+app.get('/api/auth/schools', async (req, res) => {
   try {
     const db = loadLocalDatabase();
+
+    // Attempt to sync schools from Google Sheets on load so the login helper is always up-to-date
+    try {
+      const appsScriptSheet = getAppsScriptSheetName('schools');
+      const scriptData = await proxyToAppsScript('list', appsScriptSheet, undefined, undefined, req);
+      if (Array.isArray(scriptData) && scriptData.length > 0) {
+        db.schools = scriptData;
+        saveLocalDatabase(db);
+      }
+    } catch (sheetErr: any) {
+      console.log(`Failed to sync schools on /api/auth/schools: ${sheetErr.message}`);
+    }
+
     const publicSchools = (db.schools || []).map((s: any) => ({
       id: s.id,
       name: s.name,
       npsn: s.npsn,
-      username_petugas: s.username_petugas || s.npsn || 'petugas',
+      username_petugas: s.username_petugas || getDefaultUsername(s),
     }));
     return res.json({ success: true, schools: publicSchools });
   } catch (err: any) {
@@ -545,6 +660,57 @@ app.get('/api/sheets/:sheet', async (req, res) => {
           return true;
         });
 
+        // Normalize schools credentials if loading schools from Google Sheets
+        if (sheet === 'schools') {
+          scriptData = scriptData.map((s: any) => {
+            const username = s.username_petugas || getDefaultUsername(s);
+            const password = s.password_petugas || 'petugas';
+            return {
+              ...s,
+              username_petugas: username,
+              password_petugas: password,
+            };
+          });
+        }
+
+        // Normalize teachers sheet if loading from Google Sheets
+        if (sheet === 'teachers') {
+          scriptData = scriptData.map((item: any) => {
+            const possibleHonorKeys = [
+              'Honorarium Bulanan (Rp)',
+              'Honor Bulanan (Rp)',
+              'Honorarium Bulanan',
+              'Honor Bulanan',
+              'Honor (Rp)',
+              'honor'
+            ];
+            
+            let honorVal = undefined;
+            for (const key of possibleHonorKeys) {
+              if (item[key] !== undefined && item[key] !== null) {
+                honorVal = item[key];
+                break;
+              }
+            }
+
+            let parsedHonor = 0;
+            if (honorVal !== undefined && honorVal !== null) {
+              if (typeof honorVal === 'number') {
+                parsedHonor = honorVal;
+              } else {
+                const str = String(honorVal).trim();
+                const digits = str.replace(/[^0-9]/g, '');
+                parsedHonor = parseInt(digits, 10) || 0;
+              }
+            }
+
+            return {
+              ...item,
+              honor: parsedHonor
+            };
+          });
+        }
+
         // Normalize reports sheet if loading from Google Sheets
         if (sheet === 'reports') {
           scriptData = scriptData.map((item: any) => {
@@ -568,6 +734,13 @@ app.get('/api/sheets/:sheet', async (req, res) => {
         }
       }
 
+      // Save Google Sheets data to local database for local sync/fallback
+      if (Array.isArray(scriptData) && scriptData.length > 0) {
+        const db = loadLocalDatabase();
+        db[sheet] = scriptData;
+        saveLocalDatabase(db);
+      }
+
       return res.json({ success: true, source: 'google_sheets', data: scriptData });
     }
   } catch (err: any) {
@@ -588,6 +761,57 @@ app.get('/api/sheets/:sheet', async (req, res) => {
       seenIds.add(idStr);
       return true;
     });
+
+    // Normalize schools credentials if loading schools from local database
+    if (sheet === 'schools') {
+      localData = localData.map((s: any) => {
+        const username = s.username_petugas || getDefaultUsername(s);
+        const password = s.password_petugas || 'petugas';
+        return {
+          ...s,
+          username_petugas: username,
+          password_petugas: password,
+        };
+      });
+    }
+
+    // Normalize teachers if loading from local database fallback
+    if (sheet === 'teachers') {
+      localData = localData.map((item: any) => {
+        const possibleHonorKeys = [
+          'Honorarium Bulanan (Rp)',
+          'Honor Bulanan (Rp)',
+          'Honorarium Bulanan',
+          'Honor Bulanan',
+          'Honor (Rp)',
+          'honor'
+        ];
+        
+        let honorVal = undefined;
+        for (const key of possibleHonorKeys) {
+          if (item[key] !== undefined && item[key] !== null) {
+            honorVal = item[key];
+            break;
+          }
+        }
+
+        let parsedHonor = 0;
+        if (honorVal !== undefined && honorVal !== null) {
+          if (typeof honorVal === 'number') {
+            parsedHonor = honorVal;
+          } else {
+            const str = String(honorVal).trim();
+            const digits = str.replace(/[^0-9]/g, '');
+            parsedHonor = parseInt(digits, 10) || 0;
+          }
+        }
+
+        return {
+          ...item,
+          honor: parsedHonor
+        };
+      });
+    }
 
     // Normalize reports if loading from local database fallback
     if (sheet === 'reports') {
@@ -630,11 +854,29 @@ app.post('/api/sheets/:sheet', async (req, res) => {
   bodyData.created_at = new Date().toISOString();
   bodyData.updated_at = new Date().toISOString();
 
+  // Convert Google Drive image links to direct image URLs
+  if (bodyData.foto_url) {
+    bodyData.foto_url = getDirectDriveImageUrl(bodyData.foto_url);
+  }
+  if (bodyData.logo_url) {
+    bodyData.logo_url = getDirectDriveImageUrl(bodyData.logo_url);
+  }
+
   // Normalize report fields for Google Sheets compatibility
   if (sheet === 'reports') {
     bodyData.tahun = bodyData.tahun_pelajaran || bodyData.tahun || '2026';
     bodyData.status_laporan = bodyData.status || bodyData.status_laporan || 'Submitted';
     bodyData.catatan = bodyData.notes || bodyData.catatan || '';
+  }
+
+  // Normalize teacher honorarium fields for Google Sheets compatibility
+  if (sheet === 'teachers') {
+    const honorVal = bodyData.honor !== undefined ? bodyData.honor : 1500000;
+    bodyData['Honorarium Bulanan (Rp)'] = honorVal;
+    bodyData['Honor Bulanan'] = honorVal;
+    bodyData['Honor Bulanan (Rp)'] = honorVal;
+    bodyData['Honorarium Bulanan'] = honorVal;
+    bodyData['honor'] = honorVal;
   }
 
   // 1. Always save to local database first to ensure mirroring/fallback completeness
@@ -683,6 +925,16 @@ app.post('/api/sheets-import/:sheet', async (req, res) => {
     }
     item.created_at = new Date().toISOString();
     item.updated_at = new Date().toISOString();
+
+    if (sheet === 'teachers') {
+      const honorVal = item.honor !== undefined ? item.honor : 1500000;
+      item['Honorarium Bulanan (Rp)'] = honorVal;
+      item['Honor Bulanan'] = honorVal;
+      item['Honor Bulanan (Rp)'] = honorVal;
+      item['Honorarium Bulanan'] = honorVal;
+      item['honor'] = honorVal;
+    }
+
     processedItems.push(item);
   }
 
@@ -728,11 +980,30 @@ app.put('/api/sheets/:sheet/:id', async (req, res) => {
 
   bodyData.updated_at = new Date().toISOString();
 
+  // Convert Google Drive image links to direct image URLs
+  if (bodyData.foto_url) {
+    bodyData.foto_url = getDirectDriveImageUrl(bodyData.foto_url);
+  }
+  if (bodyData.logo_url) {
+    bodyData.logo_url = getDirectDriveImageUrl(bodyData.logo_url);
+  }
+
   // Normalize report fields for Google Sheets compatibility
   if (sheet === 'reports') {
     bodyData.tahun = bodyData.tahun_pelajaran || bodyData.tahun;
     bodyData.status_laporan = bodyData.status || bodyData.status_laporan;
     bodyData.catatan = bodyData.notes || bodyData.catatan;
+  }
+
+  // Normalize teacher honorarium fields for Google Sheets compatibility
+  if (sheet === 'teachers') {
+    if (bodyData.honor !== undefined) {
+      bodyData['Honorarium Bulanan (Rp)'] = bodyData.honor;
+      bodyData['Honor Bulanan'] = bodyData.honor;
+      bodyData['Honor Bulanan (Rp)'] = bodyData.honor;
+      bodyData['Honorarium Bulanan'] = bodyData.honor;
+      bodyData['honor'] = bodyData.honor;
+    }
   }
 
   // 1. Always update local database first to ensure mirroring/fallback completeness
@@ -914,6 +1185,20 @@ app.post('/api/sheets-setup/initialize', async (req, res) => {
     }
 
     // 4. Seed/overwrite each sheet with sample data
+    const SHEET_HEADERS_MAP: Record<string, string[]> = {
+      schools: ["id", "name", "npsn", "nsm", "status", "jenjang", "alamat", "kelurahan", "kecamatan", "kabupaten", "provinsi", "kode_pos", "telepon", "email", "website", "kepala_sekolah", "nip_kepala", "akreditasi", "status_tanah", "status_gedung", "luas_tanah", "luas_bangunan", "jumlah_ruang", "jumlah_toilet", "tahun_berdiri", "tahun_operasional", "latitude", "longitude", "foto_url", "logo_url", "status_aktif", "password_petugas", "username_petugas", "ranting_aisyiyah", "ketua_ranting", "ketua_pda", "ketua_pca", "created_at", "updated_at"],
+      teachers: ["id", "school_id", "nama", "nik", "nip", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "alamat", "no_hp", "email", "pendidikan", "jurusan", "tmt", "status_guru", "jabatan", "golongan", "honor", "gty", "gtt", "pns", "pppk", "foto_url", "tahun_pelajaran", "semester", "created_at", "updated_at"],
+      students: ["id", "school_id", "nama", "nik", "nisn", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ayah", "nama_ibu", "alamat", "rt", "rw", "kelurahan", "kecamatan", "kabupaten", "provinsi", "agama", "anak_ke", "jumlah_saudara", "status_aktif", "tahun_masuk", "tahun_pelajaran", "semester", "created_at", "updated_at"],
+      reports: ["id", "school_id", "bulan", "tahun", "tahun_pelajaran", "semester", "hari_belajar", "status_gedung", "jumlah_ruangan", "status", "notes", "jumlah_guru", "jumlah_siswa", "persentase_kehadiran_guru", "persentase_kehadiran_siswa", "status_laporan", "catatan", "created_at", "updated_at"],
+      attendanceTeachers: ["id", "school_id", "tanggal", "jumlah_hadir", "jumlah_izin", "jumlah_sakit", "jumlah_alfa", "created_at", "updated_at"],
+      attendanceStudents: ["id", "school_id", "tanggal", "jumlah_hadir", "jumlah_izin", "jumlah_sakit", "jumlah_alfa", "created_at", "updated_at"],
+      inventories: ["id", "school_id", "nama_barang", "jumlah", "kondisi_baik", "kondisi_rusak_ringan", "kondisi_rusak_berat", "sumber_dana", "created_at", "updated_at"],
+      districts: ["id", "name", "created_at", "updated_at"],
+      villages: ["id", "district_id", "name", "created_at", "updated_at"],
+      logs: ["id", "user_id", "username", "action", "details", "timestamp"],
+      settings: ["id", "google_sheets_url", "google_apps_script_url", "backup_interval", "allow_petugas_edit_after_submit", "app_title", "app_subtitle", "super_admin_password", "admin_password", "petugas_password", "created_at", "updated_at"]
+    };
+
     for (const [dbKey, sheetTitle] of Object.entries(SHEET_NAME_MAP)) {
       let items = db[dbKey];
       if (!items) continue;
@@ -923,20 +1208,23 @@ app.post('/api/sheets-setup/initialize', async (req, res) => {
         items = [getEffectiveSettings(req, db.settings)];
       }
 
+      const headers = SHEET_HEADERS_MAP[dbKey] || ['id', 'created_at', 'updated_at'];
+
       if (!Array.isArray(items) || items.length === 0) {
-        // If empty, just write default header
-        const headers = ['id', 'created_at', 'updated_at'];
         await writeSheetValues(accessToken, spreadsheetId, sheetTitle, [headers]);
         continue;
       }
-
-      // Collect all keys as headers
-      const headers = Array.from(new Set(items.flatMap((item: any) => Object.keys(item))));
       
-      // Convert items to row arrays
+      // Convert items to row arrays aligned to the strict headers list
       const rows = items.map((item: any) => {
         return headers.map(header => {
-          const val = item[header];
+          let val = item[header];
+          // Provide defaults for credentials & status if not present in loaded item to ensure complete data
+          if (dbKey === 'schools' && (val === undefined || val === null)) {
+            if (header === 'username_petugas') val = getDefaultUsername(item);
+            if (header === 'password_petugas') val = 'petugas';
+            if (header === 'status_aktif') val = 'Aktif';
+          }
           if (val === undefined || val === null) return '';
           if (typeof val === 'object') return JSON.stringify(val);
           return val;

@@ -4,8 +4,10 @@
  */
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { School, User } from '../types';
 import { ExportEngine } from './ExportEngine';
+import { getDirectDriveImageUrl } from '../lib/api';
 import {
   Search,
   Plus,
@@ -208,11 +210,16 @@ export default function SchoolsView({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const sanitizedFields = {
+      ...formFields,
+      foto_url: getDirectDriveImageUrl(formFields.foto_url),
+      logo_url: getDirectDriveImageUrl(formFields.logo_url)
+    };
     try {
       if (editingSchool) {
-        await onUpdate(editingSchool.id, formFields);
+        await onUpdate(editingSchool.id, sanitizedFields);
       } else {
-        await onCreate(formFields);
+        await onCreate(sanitizedFields);
       }
       setIsFormOpen(false);
     } catch (err) {
@@ -263,8 +270,7 @@ export default function SchoolsView({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {!isFormOpen ? (
-        isPetugas ? (
+      {isPetugas ? (
         // DEDICATED PROFILE VIEW FOR PETUGAS SEKOLAH (SCHOOL OFFICER)
         (() => {
           const mySchool = schools.find(s => s.id === user.school_id);
@@ -273,29 +279,41 @@ export default function SchoolsView({
               {/* Cover Banner */}
               <div className="h-64 bg-slate-100 relative overflow-hidden">
                 <img
-                  src={mySchool.foto_url || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1200'}
+                  src={getDirectDriveImageUrl(mySchool.foto_url) || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1200'}
                   alt={mySchool.name}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent"></div>
                 <div className="absolute bottom-6 left-6 right-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                  <div className="space-y-1.5 text-white">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-brand-600 text-white font-bold px-2.5 py-0.5 rounded-lg text-[10px] font-sans shadow-sm">
-                        Terakreditasi {mySchool.akreditasi || 'Belum Terakreditasi'}
-                      </span>
-                      <span className="bg-white/20 backdrop-blur-md text-white font-mono text-[9px] px-2 py-0.5 rounded-md uppercase font-semibold">
-                        {mySchool.status || 'Swasta'}
-                      </span>
-                    </div>
-                    <h2 className="text-xl md:text-2xl font-bold tracking-tight font-sans">
-                      {mySchool.name}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-slate-200">
-                      <span>NPSN: <b className="text-white font-semibold">{mySchool.npsn || '-'}</b></span>
-                      <span>NSM: <b className="text-white font-semibold">{mySchool.nsm || '-'}</b></span>
-                      <span>Jenjang: <b className="text-white font-semibold uppercase">{mySchool.jenjang || '-'}</b></span>
+                  <div className="flex items-center gap-4 text-white">
+                    {mySchool.logo_url && (
+                      <div className="w-16 h-16 bg-white rounded-2xl shadow-lg border border-slate-200/20 p-1 shrink-0 overflow-hidden flex items-center justify-center">
+                        <img
+                          src={getDirectDriveImageUrl(mySchool.logo_url)}
+                          alt="Logo Sekolah"
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-brand-600 text-white font-bold px-2.5 py-0.5 rounded-lg text-[10px] font-sans shadow-sm">
+                          Terakreditasi {mySchool.akreditasi || 'Belum Terakreditasi'}
+                        </span>
+                        <span className="bg-white/20 backdrop-blur-md text-white font-mono text-[9px] px-2 py-0.5 rounded-md uppercase font-semibold">
+                          {mySchool.status || 'Swasta'}
+                        </span>
+                      </div>
+                      <h2 className="text-xl md:text-2xl font-bold tracking-tight font-sans">
+                        {mySchool.name}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-slate-200">
+                        <span>NPSN: <b className="text-white font-semibold">{mySchool.npsn || '-'}</b></span>
+                        <span>NSM: <b className="text-white font-semibold">{mySchool.nsm || '-'}</b></span>
+                        <span>Jenjang: <b className="text-white font-semibold uppercase">{mySchool.jenjang || '-'}</b></span>
+                      </div>
                     </div>
                   </div>
 
@@ -499,7 +517,7 @@ export default function SchoolsView({
             </div>
           );
         })()
-      ) : (
+      ) :
         // MULTI-SCHOOL DIRECTORY VIEW FOR SUPER_ADMIN & ADMIN
         <>
           {/* Header operations */}
@@ -541,7 +559,7 @@ export default function SchoolsView({
                 {/* Banner Photo */}
                 <div className="h-44 bg-slate-100 relative overflow-hidden">
                   <img
-                    src={school.foto_url || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800'}
+                    src={getDirectDriveImageUrl(school.foto_url) || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800'}
                     alt={school.name}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -552,6 +570,16 @@ export default function SchoolsView({
                   <span className="absolute top-3 right-3 bg-slate-900/80 text-white font-mono text-[9px] px-2 py-0.5 rounded-md uppercase font-semibold">
                     {school.status}
                   </span>
+                  {school.logo_url && (
+                    <div className="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-xl shadow-md border border-slate-150 flex items-center justify-center p-0.5 overflow-hidden">
+                      <img
+                        src={getDirectDriveImageUrl(school.logo_url)}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* School details body */}
@@ -603,8 +631,8 @@ export default function SchoolsView({
                     </div>
                   </div>
 
-                  {/* Credentials (visible only to Admin & Super Admin) */}
-                  {(isSuperAdmin || isAdmin) && (school.username_petugas || school.password_petugas) && (
+                  {/* Credentials (visible only to Admin, Super Admin, or the school's own Petugas) */}
+                  {(isSuperAdmin || isAdmin || (isPetugas && school.id === user.school_id)) && (school.username_petugas || school.password_petugas) && (
                     <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs space-y-1.5 animate-fade-in">
                       <div className="flex items-center gap-1.5 text-[9px] text-slate-400 uppercase font-bold tracking-wider">
                         <Key className="w-3.5 h-3.5 text-brand-500" />
@@ -689,30 +717,68 @@ export default function SchoolsView({
             )}
           </div>
         </>
-      )
-    ) : (
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden animate-fade-in">
-          {/* Header */}
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white shadow-sm z-10">
-            <div className="flex items-center gap-2.5 text-brand-700">
-              <SchoolIcon className="w-5.5 h-5.5 text-brand-600" />
-              <h3 className="font-bold text-slate-800 text-sm sm:text-base font-sans">
-                {editingSchool ? 'Edit Profil Lengkap Sekolah' : 'Isi Profil Lengkap Sekolah Baru'}
-              </h3>
-            </div>
-            <button
-              onClick={() => setIsFormOpen(false)}
-              className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+      }
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="bg-white">
-            {/* Fields Container */}
-            <div className="p-4 sm:p-6 md:p-8 space-y-8">
+      {/* CREATE / EDIT SEKOLAH MODAL */}
+      {isFormOpen && createPortal(
+        <div id="school-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden animate-fade-in">
+          <div className="bg-white w-full max-h-[85vh] sm:max-h-[90vh] rounded-2xl sm:rounded-3xl max-w-4xl shadow-2xl border border-slate-100 flex flex-col relative overflow-hidden animate-fade-in">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-2 text-brand-700">
+                <SchoolIcon className="w-5 h-5 text-brand-600" />
+                <h3 className="font-bold text-slate-800 text-sm font-sans">
+                  {editingSchool ? 'Edit Profil Lengkap Sekolah' : 'Isi Profil Lengkap Sekolah Baru'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsFormOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
+              {/* Fields Container */}
+              <div className="p-4 sm:p-6 md:p-8 space-y-8 flex-1 overflow-y-auto no-scrollbar font-sans text-xs text-slate-700">
                 <div className="max-w-4xl mx-auto w-full space-y-8">
+                  {/* Live Kop Surat Preview */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150 space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">
+                      Pratinjau Kop Surat Resmi Sekolah
+                    </span>
+                    <div className="flex items-center gap-4 border-b-2 border-slate-700 pb-3 bg-white p-3.5 rounded-xl shadow-sm">
+                      <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 overflow-hidden">
+                        {formFields.logo_url ? (
+                          <img 
+                            src={getDirectDriveImageUrl(formFields.logo_url)} 
+                            alt="Logo Preview" 
+                            className="w-full h-full object-contain p-0.5 bg-white"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          formFields.jenjang || 'TK'
+                        )}
+                      </div>
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <h4 className="text-[9px] font-extrabold text-slate-900 uppercase truncate tracking-wider leading-none">
+                          PIMPINAN DAERAH AISYIYAH KOTA MALANG
+                        </h4>
+                        <h3 className="text-sm font-black text-brand-700 uppercase truncate leading-tight">
+                          {formFields.name || 'NAMA SEKOLAH'}
+                        </h3>
+                        <p className="text-[9px] text-slate-500 font-mono truncate">
+                          Alamat: {formFields.alamat || 'Alamat sekolah...'} {formFields.kelurahan ? `, Kel. ${formFields.kelurahan}` : ''} {formFields.kecamatan ? `, Kec. ${formFields.kecamatan}` : ''} {formFields.kabupaten ? `, ${formFields.kabupaten}` : ''}
+                        </p>
+                        <p className="text-[8px] text-slate-400 truncate leading-none">
+                          Telp/HP: {formFields.telepon || '-'} | Email: {formFields.email || '-'} | Website: {formFields.website || '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Bagian 1: Informasi Identitas Utama */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-brand-700 uppercase tracking-wide border-b border-slate-100 pb-1.5 font-sans flex items-center gap-1.5">
@@ -792,6 +858,18 @@ export default function SchoolsView({
                           <option value="B">Terakreditasi B</option>
                           <option value="C">Terakreditasi C</option>
                           <option value="Belum Terakreditasi">Belum Terakreditasi</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1 font-sans">Status Keaktifan Sekolah</label>
+                        <select
+                          value={formFields.status_aktif || 'Aktif'}
+                          onChange={(e) => setFormFields({ ...formFields, status_aktif: e.target.value as any })}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-500 text-slate-700 font-sans"
+                        >
+                          <option value="Aktif">Aktif</option>
+                          <option value="Tidak Aktif">Tidak Aktif</option>
                         </select>
                       </div>
 
@@ -1138,6 +1216,17 @@ export default function SchoolsView({
                       </div>
 
                       <div className="sm:col-span-3">
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1 font-sans">Logo URL Sekolah (Google Drive / Lainnya)</label>
+                        <input
+                          type="text"
+                          value={formFields.logo_url || ''}
+                          onChange={(e) => setFormFields({ ...formFields, logo_url: e.target.value })}
+                          placeholder="Contoh: https://drive.google.com/file/d/.../view"
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-500 text-slate-700 font-sans font-mono"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-3">
                         <label className="block text-[11px] font-semibold text-slate-500 mb-1 font-sans flex items-center justify-between">
                           <span>Username Petugas Sekolah (Khusus)</span>
                           {isPetugas && (
@@ -1207,10 +1296,12 @@ export default function SchoolsView({
             </div>
           </form>
         </div>
-      )}
+      </div>,
+      document.body
+    )}
 
       {/* CUSTOM CONFIRM DELETE MODAL */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto animate-bounce">
@@ -1241,13 +1332,14 @@ export default function SchoolsView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* DETAILED SCHOOL PROFILE VIEW & PRINT/EXPORT MODAL */}
-      {selectedSchoolForView && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-start justify-center p-2 sm:p-6 overflow-y-auto no-print">
-          <div className="bg-white rounded-2xl md:rounded-3xl max-w-4xl w-full my-auto shadow-2xl border border-slate-100 relative animate-fade-in no-print flex flex-col overflow-hidden">
+      {selectedSchoolForView && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden no-print">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[85vh] sm:max-h-[90vh] shadow-2xl border border-slate-100 relative animate-fade-in no-print flex flex-col overflow-hidden">
             
             {/* Modal Controls Bar */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0">
@@ -1334,25 +1426,35 @@ export default function SchoolsView({
             `}} />
 
             {/* Printable Area Wrapper */}
-            <div id="school-print-profile-content" className="p-8 md:p-12 space-y-8 bg-white text-slate-800">
+            <div id="school-print-profile-content" className="p-5 sm:p-8 md:p-12 space-y-8 bg-white text-slate-800 overflow-y-auto flex-1 no-scrollbar">
               
               {/* Kop Surat / Formal Header */}
               <div className="flex items-center gap-6 border-b-4 border-slate-800 pb-5">
-                <div className="w-16 h-16 bg-brand-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0 print:border print:border-slate-300">
-                  {selectedSchoolForView.jenjang || 'TK'}
+                <div className="w-16 h-16 bg-brand-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0 print:border print:border-slate-300 overflow-hidden">
+                  {selectedSchoolForView.logo_url ? (
+                    <img 
+                      src={getDirectDriveImageUrl(selectedSchoolForView.logo_url)} 
+                      alt="Logo Sekolah" 
+                      className="w-full h-full object-contain p-1 bg-white" 
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    selectedSchoolForView.jenjang || 'TK'
+                  )}
                 </div>
                 <div className="space-y-1">
                   <h2 className="text-sm font-extrabold tracking-wider text-slate-900 uppercase font-sans leading-none">
                     PIMPINAN DAERAH AISYIYAH KOTA MALANG
                   </h2>
                   <h1 className="text-lg font-black tracking-tight text-brand-700 uppercase font-sans leading-none">
-                    MAJELIS PENDIDIKAN DASAR DAN MENENGAH (DIKDASMEN)
+                    {selectedSchoolForView.name}
                   </h1>
                   <p className="text-xs text-slate-500 font-mono">
-                    Sistem Informasi Administrasi Aisyiyah Bustanul Athfal (SIABA) Kota Malang
+                    Alamat: {selectedSchoolForView.alamat || '-'} {selectedSchoolForView.kelurahan ? `, Kel. ${selectedSchoolForView.kelurahan}` : ''} {selectedSchoolForView.kecamatan ? `, Kec. ${selectedSchoolForView.kecamatan}` : ''} {selectedSchoolForView.kabupaten ? `, ${selectedSchoolForView.kabupaten}` : ''}
                   </p>
                   <p className="text-[10px] text-slate-400 font-sans">
-                    Alamat Kantor: Pimpinan Daerah Aisyiyah Kota Malang, Jawa Timur | Telp: (0341) 123456
+                    Telp/HP: {selectedSchoolForView.telepon || '-'} | Email: {selectedSchoolForView.email || '-'} | Website: {selectedSchoolForView.website || '-'}
                   </p>
                 </div>
               </div>
@@ -1592,7 +1694,8 @@ export default function SchoolsView({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

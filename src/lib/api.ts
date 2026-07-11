@@ -190,3 +190,29 @@ export const ApiService = {
     }
   }
 };
+
+/**
+ * Converts Google Drive sharing links into direct/embeddable image URLs.
+ */
+export function getDirectDriveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.includes('drive.google.com') || trimmed.includes('docs.google.com')) {
+    // Match /d/[FILE_ID]
+    const dMatch = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (dMatch && dMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${dMatch[1]}`;
+    }
+
+    // Match id=[FILE_ID] query param
+    const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+    if (idMatch && idMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    }
+  }
+
+  return trimmed;
+}
+

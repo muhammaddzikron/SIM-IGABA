@@ -709,6 +709,14 @@ function createRecord(sheet, data) {
     var colName = headers[i];
     var val = data[colName];
     
+    // Fallback mapping for honorarium variations
+    if (val === undefined || val === null) {
+      var colClean = String(colName).trim().toLowerCase();
+      if (colClean === "honor" || colClean === "honorarium" || colClean === "honorarium bulanan (rp)" || colClean === "honor bulanan (rp)" || colClean === "honor bulanan" || colClean === "honorarium bulanan") {
+        val = data["honor"] !== undefined ? data["honor"] : data[colName];
+      }
+    }
+    
     if (val === undefined || val === null) {
       val = "";
     } else if (typeof val === "object") {
@@ -758,7 +766,18 @@ function updateRecord(sheet, id, data) {
   for (var k in data) {
     var colIndex = -1;
     for (var i = 0; i < headers.length; i++) {
-      if (String(headers[i]).trim() === String(k).trim()) {
+      var headerStr = String(headers[i]).trim();
+      var keyStr = String(k).trim();
+      
+      var isMatch = (headerStr === keyStr);
+      if (!isMatch && keyStr.toLowerCase() === "honor") {
+        var hClean = headerStr.toLowerCase();
+        if (hClean === "honorarium" || hClean === "honorarium bulanan (rp)" || hClean === "honor bulanan (rp)" || hClean === "honor bulanan" || hClean === "honorarium bulanan") {
+          isMatch = true;
+        }
+      }
+      
+      if (isMatch) {
         colIndex = i + 1;
         break;
       }
