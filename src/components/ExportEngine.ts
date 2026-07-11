@@ -15,20 +15,31 @@ import { School, Teacher, Student, Report, AttendanceTeacher, AttendanceStudent,
 async function withOklchWorkaround<T>(fn: () => Promise<T>): Promise<T> {
   const styleElements = Array.from(document.querySelectorAll('style'));
   const linkElements = Array.from(document.querySelectorAll('link[rel="stylesheet"]')) as HTMLLinkElement[];
+  const elementsWithStyles = Array.from(document.querySelectorAll('[style]')) as HTMLElement[];
   
   const originalStyles = styleElements.map(el => ({ el, text: el.textContent }));
   const originalLinks = linkElements.map(el => ({ el, disabled: el.disabled }));
+  const originalInlineStyles = elementsWithStyles.map(el => ({ el, cssText: el.style.cssText }));
   const tempStyleTags: HTMLStyleElement[] = [];
 
   const replaceOklch = (text: string): string => {
-    return text.replace(/oklch\([^)]+\)/g, (match) => {
-      const parts = match.slice(6, -1).split(/[\s/]+/);
-      const L = parseFloat(parts[0]);
-      const C = parseFloat(parts[1]);
-      const H = parseFloat(parts[2]);
+    // Replace oklch(...)
+    let result = text.replace(/oklch\([^)]+\)/g, (match) => {
+      const parts = match.slice(6, -1).trim().split(/[\s/]+/);
+      let L = parseFloat(parts[0]);
+      if (parts[0].includes('%') || L > 1) {
+        L = L / 100;
+      }
+      let C = parseFloat(parts[1]);
+      if (parts[1] && parts[1].includes('%')) {
+        C = C / 100;
+      }
+      let H = parseFloat(parts[2]);
       const A = parts[3] ? parseFloat(parts[3]) : 1;
       
       if (isNaN(L)) return 'transparent';
+      if (isNaN(C)) C = 0;
+      if (isNaN(H)) H = 0;
       
       // Slate/gray colors (very low chroma)
       if (C < 0.04) {
@@ -48,23 +59,48 @@ async function withOklchWorkaround<T>(fn: () => Promise<T>): Promise<T> {
       const rgbVal = Math.round(L * 255);
       return `rgba(${rgbVal}, ${rgbVal}, ${rgbVal}, ${A})`;
     });
+
+    // Replace oklab(...)
+    result = result.replace(/oklab\([^)]+\)/g, (match) => {
+      const parts = match.slice(6, -1).trim().split(/[\s/]+/);
+      let L = parseFloat(parts[0]);
+      if (parts[0].includes('%') || L > 1) {
+        L = L / 100;
+      }
+      const A = parts[3] ? parseFloat(parts[3]) : 1;
+      
+      if (isNaN(L)) return 'transparent';
+      
+      const val = Math.round(L * 255);
+      return `rgba(${val}, ${val}, ${val}, ${A})`;
+    });
+
+    return result;
   };
 
-  // 1. Process inline styles
+  // 1. Process style tags
   styleElements.forEach(el => {
-    if (el.textContent && el.textContent.includes('oklch')) {
+    if (el.textContent && (el.textContent.includes('oklch') || el.textContent.includes('oklab'))) {
       el.textContent = replaceOklch(el.textContent);
     }
   });
 
-  // 2. Process stylesheet links
+  // 2. Process inline style attributes
+  elementsWithStyles.forEach(el => {
+    const cssText = el.style.cssText;
+    if (cssText.includes('oklch') || cssText.includes('oklab')) {
+      el.style.cssText = replaceOklch(cssText);
+    }
+  });
+
+  // 3. Process stylesheet links
   for (const link of linkElements) {
     if (link.href && link.href.startsWith(window.location.origin)) {
       try {
         const response = await fetch(link.href);
         if (response.ok) {
           let cssText = await response.text();
-          if (cssText.includes('oklch')) {
+          if (cssText.includes('oklch') || cssText.includes('oklab')) {
             cssText = replaceOklch(cssText);
             const tempStyle = document.createElement('style');
             tempStyle.textContent = cssText;
@@ -85,6 +121,10 @@ async function withOklchWorkaround<T>(fn: () => Promise<T>): Promise<T> {
     // Restore original style tags
     originalStyles.forEach(({ el, text }) => {
       el.textContent = text;
+    });
+    // Restore inline styles
+    originalInlineStyles.forEach(({ el, cssText }) => {
+      el.style.cssText = cssText;
     });
     // Restore link elements
     originalLinks.forEach(({ el, disabled }) => {

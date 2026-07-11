@@ -258,29 +258,6 @@ export default function App() {
 
       {/* Main content view with balanced side, top, and bottom spacing */}
       <main className="flex-1 px-4 py-6 md:px-8 md:py-8 max-w-7xl w-full mx-auto space-y-6">
-          {sourceIndicator === 'local_database' && (
-            <div className="p-4 bg-amber-50/90 border border-amber-200/70 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 font-medium font-sans shadow-sm transition-all">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="font-bold text-amber-950">Mode Database Lokal Cadangan Aktif</p>
-                  <p className="text-amber-800 text-[11px] leading-relaxed">
-                    Aplikasi mendeteksi Google Spreadsheet Anda belum memiliki lembar kerja (Sheets) atau URL Apps Script belum tervalidasi. Silakan inisialisasi spreadsheet di menu Pengaturan.
-                  </p>
-                </div>
-              </div>
-              {user.role === 'SUPER_ADMIN' && activeTab !== 'settings' && (
-                <button
-                  onClick={() => setActiveTab('settings')}
-                  className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all text-[11px] cursor-pointer shadow-sm hover:scale-[1.02]"
-                >
-                  Setup Google Sheets
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
-
           {isLoading && (
             <div className="p-3 bg-brand-50 border border-brand-100 rounded-2xl flex items-center gap-2.5 text-xs text-brand-800 font-medium font-sans animate-pulse">
               <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
