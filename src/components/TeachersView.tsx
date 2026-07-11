@@ -1049,11 +1049,11 @@ export default function TeachersView({
 
       {/* DETAILED TEACHER PROFILE VIEW & PRINT/EXPORT MODAL */}
       {selectedTeacherForView && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden no-print animate-fade-in">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 relative no-print flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 relative flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[90vh]">
             
             {/* Modal Controls Bar */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0 no-print">
               <div className="flex items-center gap-2">
                 <UserIcon className="w-5 h-5 text-brand-600" />
                 <h3 className="font-bold text-slate-800 text-sm font-sans">Detail Profil Lengkap Guru</h3>

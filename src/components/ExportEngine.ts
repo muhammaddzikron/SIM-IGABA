@@ -8,6 +8,93 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { School, Teacher, Student, Report, AttendanceTeacher, AttendanceStudent, Inventory } from '../types';
 
+/**
+ * Helper utility to temporarily convert CSS 'oklch' color styles into standard RGB
+ * to prevent html2canvas parsing failures (e.g. "Attempting to parse an unsupported color function")
+ */
+async function withOklchWorkaround<T>(fn: () => Promise<T>): Promise<T> {
+  const styleElements = Array.from(document.querySelectorAll('style'));
+  const linkElements = Array.from(document.querySelectorAll('link[rel="stylesheet"]')) as HTMLLinkElement[];
+  
+  const originalStyles = styleElements.map(el => ({ el, text: el.textContent }));
+  const originalLinks = linkElements.map(el => ({ el, disabled: el.disabled }));
+  const tempStyleTags: HTMLStyleElement[] = [];
+
+  const replaceOklch = (text: string): string => {
+    return text.replace(/oklch\([^)]+\)/g, (match) => {
+      const parts = match.slice(6, -1).split(/[\s/]+/);
+      const L = parseFloat(parts[0]);
+      const C = parseFloat(parts[1]);
+      const H = parseFloat(parts[2]);
+      const A = parts[3] ? parseFloat(parts[3]) : 1;
+      
+      if (isNaN(L)) return 'transparent';
+      
+      // Slate/gray colors (very low chroma)
+      if (C < 0.04) {
+        const grayVal = Math.round(L * 255);
+        return `rgba(${grayVal}, ${grayVal}, ${grayVal}, ${A})`;
+      }
+      
+      // Green / Brand colors (hue is around 100-180)
+      if (H >= 100 && H <= 180) {
+        const gVal = Math.round(L * 180);
+        const rVal = Math.round(L * 40);
+        const bVal = Math.round(L * 80);
+        return `rgba(${rVal}, ${gVal}, ${bVal}, ${A})`;
+      }
+      
+      // Default fallback
+      const rgbVal = Math.round(L * 255);
+      return `rgba(${rgbVal}, ${rgbVal}, ${rgbVal}, ${A})`;
+    });
+  };
+
+  // 1. Process inline styles
+  styleElements.forEach(el => {
+    if (el.textContent && el.textContent.includes('oklch')) {
+      el.textContent = replaceOklch(el.textContent);
+    }
+  });
+
+  // 2. Process stylesheet links
+  for (const link of linkElements) {
+    if (link.href && link.href.startsWith(window.location.origin)) {
+      try {
+        const response = await fetch(link.href);
+        if (response.ok) {
+          let cssText = await response.text();
+          if (cssText.includes('oklch')) {
+            cssText = replaceOklch(cssText);
+            const tempStyle = document.createElement('style');
+            tempStyle.textContent = cssText;
+            document.head.appendChild(tempStyle);
+            tempStyleTags.push(tempStyle);
+            link.disabled = true;
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal memproses link stylesheet:', e);
+      }
+    }
+  }
+
+  try {
+    return await fn();
+  } finally {
+    // Restore original style tags
+    originalStyles.forEach(({ el, text }) => {
+      el.textContent = text;
+    });
+    // Restore link elements
+    originalLinks.forEach(({ el, disabled }) => {
+      el.disabled = disabled;
+    });
+    // Clean up injected temp style tags
+    tempStyleTags.forEach(el => el.remove());
+  }
+}
+
 export const ExportEngine = {
   /**
    * Generates a beautifully formatted Excel sheet matching official reporting templates
@@ -531,34 +618,36 @@ export const ExportEngine = {
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    // Set configuration for html2canvas
-    const canvas = await html2canvas(element, {
-      scale: 2, // High resolution density
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+    await withOklchWorkaround(async () => {
+      // Set configuration for html2canvas
+      const canvas = await html2canvas(element, {
+        scale: 2, // High resolution density
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210; // A4 standard width in mm
-    const pageHeight = 295; // A4 height in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 standard width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
 
-    // Add multiple pages if necessary
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
+      // Add multiple pages if necessary
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-    }
 
-    pdf.save(`Laporan_Bulanan_${schoolName.replace(/\s+/g, '_')}_${reportMonth}_2026.pdf`);
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Laporan_Bulanan_${schoolName.replace(/\s+/g, '_')}_${reportMonth}_2026.pdf`);
+    });
   },
 
   /**
@@ -1047,29 +1136,54 @@ export const ExportEngine = {
     
     // Fill the cells manually
     const startRowIndex = 24;
-    worksheet.getCell(`D${startRowIndex}`).value = 'Malang, ' + dateStr;
+    worksheet.getCell(`D${startRowIndex}`).value = `${school.kabupaten || 'Klaten'}, ${dateStr}`;
     worksheet.getCell(`D${startRowIndex}`).font = valueFont;
 
     worksheet.getCell(`A${startRowIndex + 1}`).value = 'Mengetahui / Menyetujui,';
     worksheet.getCell(`A${startRowIndex + 1}`).font = labelFont;
-    worksheet.getCell(`D${startRowIndex + 1}`).value = 'Kepala Sekolah,';
+    worksheet.getCell(`D${startRowIndex + 1}`).value = `Kepala Sekolah ${school.name},`;
     worksheet.getCell(`D${startRowIndex + 1}`).font = labelFont;
 
     worksheet.getCell(`A${startRowIndex + 2}`).value = 'Pimpinan Aisyiyah Ranting';
-    worksheet.getCell(`A${startRowIndex + 2}`).font = valueFont;
-    worksheet.getCell(`D${startRowIndex + 2}`).value = school.name;
-    worksheet.getCell(`D${startRowIndex + 2}`).font = valueFont;
+    worksheet.getCell(`A${startRowIndex + 2}`).font = labelFont;
 
-    // Space for signature
-    worksheet.getCell(`A${startRowIndex + 6}`).value = school.ketua_ranting ? `( ${school.ketua_ranting} )` : '( ________________________ )';
-    worksheet.getCell(`A${startRowIndex + 6}`).font = labelFont;
-    worksheet.getCell(`D${startRowIndex + 6}`).value = school.kepala_sekolah || '(Nama Kepala Sekolah)';
-    worksheet.getCell(`D${startRowIndex + 6}`).font = { ...labelFont, underline: true };
+    worksheet.getCell(`A${startRowIndex + 3}`).value = `Ranting ${school.ranting_aisyiyah || school.kelurahan || 'Gergunung'}`;
+    worksheet.getCell(`A${startRowIndex + 3}`).font = valueFont;
 
-    worksheet.getCell(`A${startRowIndex + 7}`).value = '';
-    worksheet.getCell(`A${startRowIndex + 7}`).font = valueFont;
-    worksheet.getCell(`D${startRowIndex + 7}`).value = 'NIP. ' + (school.nip_kepala || '-');
-    worksheet.getCell(`D${startRowIndex + 7}`).font = valueFont;
+    // Space for signature (Left: Ketua Ranting, Right: Kepala Sekolah)
+    worksheet.getCell(`A${startRowIndex + 7}`).value = `( ${school.ketua_ranting || 'Istiqomah'} )`;
+    worksheet.getCell(`A${startRowIndex + 7}`).font = labelFont;
+    worksheet.getCell(`D${startRowIndex + 7}`).value = school.kepala_sekolah || 'Wahyuningsih, S.Pd';
+    worksheet.getCell(`D${startRowIndex + 7}`).font = { ...labelFont, underline: true };
+
+    worksheet.getCell(`D${startRowIndex + 8}`).value = 'NIP. ' + (school.nip_kepala || '-');
+    worksheet.getCell(`D${startRowIndex + 8}`).font = valueFont;
+
+    // Second signature row (PDA & PCA)
+    const secondRowIndex = startRowIndex + 11; // Row 35
+    worksheet.getCell(`A${secondRowIndex}`).value = 'Ketua Pimpinan Daerah Aisyiyah';
+    worksheet.getCell(`A${secondRowIndex}`).font = labelFont;
+    worksheet.getCell(`D${secondRowIndex}`).value = 'Ketua Pimpinan Cabang Aisyiyah';
+    worksheet.getCell(`D${secondRowIndex}`).font = labelFont;
+
+    worksheet.getCell(`A${secondRowIndex + 1}`).value = 'Majelis PAUD Dasar dan Menengah';
+    worksheet.getCell(`A${secondRowIndex + 1}`).font = valueFont;
+    worksheet.getCell(`D${secondRowIndex + 1}`).value = 'Majelis PAUD Dasar dan Menengah';
+    worksheet.getCell(`D${secondRowIndex + 1}`).font = valueFont;
+
+    const pdaKab = school.kabupaten ? (school.kabupaten.toLowerCase().includes('kabupaten') || school.kabupaten.toLowerCase().includes('kota') ? school.kabupaten : `Kabupaten ${school.kabupaten}`) : 'Kabupaten Klaten';
+    const pcaKec = school.kecamatan ? (school.kecamatan.toLowerCase().includes('kecamatan') ? school.kecamatan : `Kecamatan ${school.kecamatan}`) : 'Kecamatan Klaten Utara';
+
+    worksheet.getCell(`A${secondRowIndex + 2}`).value = pdaKab;
+    worksheet.getCell(`A${secondRowIndex + 2}`).font = valueFont;
+    worksheet.getCell(`D${secondRowIndex + 2}`).value = pcaKec;
+    worksheet.getCell(`D${secondRowIndex + 2}`).font = valueFont;
+
+    // Signature names (Left: Ketua PDA, Right: Ketua PCA)
+    worksheet.getCell(`A${secondRowIndex + 6}`).value = `( ${school.ketua_pda || 'Ensap Srimulat'} )`;
+    worksheet.getCell(`A${secondRowIndex + 6}`).font = labelFont;
+    worksheet.getCell(`D${secondRowIndex + 6}`).value = `( ${school.ketua_pca || 'Humairoh Al Hakim'} )`;
+    worksheet.getCell(`D${secondRowIndex + 6}`).font = labelFont;
 
     // Format headers and borders for identity and contacts
     for (let r = 5; r <= 12; r++) {
@@ -1104,32 +1218,34 @@ export const ExportEngine = {
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+    await withOklchWorkaround(async () => {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210;
-    const pageHeight = 295;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-    }
 
-    pdf.save(`Profil_Sekolah_${schoolName.replace(/\s+/g, '_')}.pdf`);
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Profil_Sekolah_${schoolName.replace(/\s+/g, '_')}.pdf`);
+    });
   }
 };
 

@@ -1338,11 +1338,11 @@ export default function SchoolsView({
 
       {/* DETAILED SCHOOL PROFILE VIEW & PRINT/EXPORT MODAL */}
       {selectedSchoolForView && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden no-print">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[85vh] sm:max-h-[90vh] shadow-2xl border border-slate-100 relative animate-fade-in no-print flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[85vh] sm:max-h-[90vh] shadow-2xl border border-slate-100 relative animate-fade-in flex flex-col overflow-hidden">
             
             {/* Modal Controls Bar */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 shrink-0 no-print">
               <div className="flex items-center gap-2">
                 <SchoolIcon className="w-5 h-5 text-brand-600" />
                 <h3 className="font-bold text-slate-800 text-sm font-sans">Detail Profil Lengkap</h3>
@@ -1437,15 +1437,19 @@ export default function SchoolsView({
                       alt="Logo Sekolah" 
                       className="w-full h-full object-contain p-1 bg-white" 
                       referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230ea5e9' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 14l9-5-9-5-9 5 9 5z'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 14l9-5-9-5-9 5 9 5zm0 0v6'/%3E%3C/svg%3E";
+                      }}
                     />
                   ) : (
-                    selectedSchoolForView.jenjang || 'TK'
+                    <div className="w-full h-full flex items-center justify-center bg-brand-600 text-white font-bold text-xl uppercase">
+                      {selectedSchoolForView.jenjang || 'TK'}
+                    </div>
                   )}
                 </div>
                 <div className="space-y-1">
                   <h2 className="text-sm font-extrabold tracking-wider text-slate-900 uppercase font-sans leading-none">
-                    PIMPINAN DAERAH AISYIYAH KOTA MALANG
+                    PIMPINAN DAERAH AISYIYAH {selectedSchoolForView.kabupaten ? (selectedSchoolForView.kabupaten.toUpperCase().includes('KABUPATEN') || selectedSchoolForView.kabupaten.toUpperCase().includes('KOTA') ? selectedSchoolForView.kabupaten.toUpperCase() : `KABUPATEN ${selectedSchoolForView.kabupaten.toUpperCase()}`) : 'KABUPATEN KLATEN'}
                   </h2>
                   <h1 className="text-lg font-black tracking-tight text-brand-700 uppercase font-sans leading-none">
                     {selectedSchoolForView.name}
@@ -1647,10 +1651,13 @@ export default function SchoolsView({
                   <div className="space-y-1">
                     <p className="font-semibold text-slate-700">Mengetahui / Menyetujui,</p>
                     <p className="font-bold text-slate-800">Pimpinan Aisyiyah Ranting</p>
+                    <p className="text-slate-600 font-medium text-[11px]">
+                      Ranting {selectedSchoolForView.ranting_aisyiyah || selectedSchoolForView.kelurahan || 'Gergunung'}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="font-bold text-slate-900 text-sm">
-                      ( {selectedSchoolForView.ketua_ranting || '___________________________'} )
+                      ( {selectedSchoolForView.ketua_ranting || 'Istiqomah'} )
                     </p>
                   </div>
                 </div>
@@ -1658,15 +1665,56 @@ export default function SchoolsView({
                 {/* Right Side: Kepala Sekolah */}
                 <div className="text-center space-y-20">
                   <div className="space-y-1">
-                    <p className="font-medium text-slate-600">Malang, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="font-medium text-slate-600">
+                      {selectedSchoolForView.kabupaten || 'Klaten'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
                     <p className="font-bold text-slate-800">Kepala Sekolah {selectedSchoolForView.name}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="font-bold text-slate-900 text-sm underline decoration-slate-800">
-                      {selectedSchoolForView.kepala_sekolah || '(Nama Kepala Sekolah)'}
+                      {selectedSchoolForView.kepala_sekolah || 'Wahyuningsih, S.Pd'}
                     </p>
                     <p className="text-[10px] text-slate-700 font-mono">
                       NIP. {selectedSchoolForView.nip_kepala || '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECOND SIGNATURE ROW (PDA & PCA) */}
+              <div className="pt-8 grid grid-cols-2 gap-12 font-sans text-xs border-t border-slate-100/50 mt-6">
+                {/* Left Side: Ketua PDA */}
+                <div className="text-center space-y-20">
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-800 leading-normal">
+                      Ketua Pimpinan Daerah Aisyiyah<br />
+                      Majelis PAUD Dasar dan Menengah<br />
+                      <span className="font-semibold text-slate-600">
+                        {selectedSchoolForView.kabupaten ? (selectedSchoolForView.kabupaten.toLowerCase().includes('kabupaten') || selectedSchoolForView.kabupaten.toLowerCase().includes('kota') ? selectedSchoolForView.kabupaten : `Kabupaten ${selectedSchoolForView.kabupaten}`) : 'Kabupaten Klaten'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-900 text-sm">
+                      ( {selectedSchoolForView.ketua_pda || 'Ensap Srimulat'} )
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Side: Ketua PCA */}
+                <div className="text-center space-y-20">
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-800 leading-normal">
+                      Ketua Pimpinan Cabang Aisyiyah<br />
+                      Majelis PAUD Dasar dan Menengah<br />
+                      <span className="font-semibold text-slate-600">
+                        {selectedSchoolForView.kecamatan ? (selectedSchoolForView.kecamatan.toLowerCase().includes('kecamatan') ? selectedSchoolForView.kecamatan : `Kecamatan ${selectedSchoolForView.kecamatan}`) : 'Kecamatan Klaten Utara'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-900 text-sm">
+                      ( {selectedSchoolForView.ketua_pca || 'Humairoh Al Hakim'} )
                     </p>
                   </div>
                 </div>
