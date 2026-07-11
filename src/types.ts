@@ -56,6 +56,8 @@ export interface School {
   ketua_ranting?: string;
   ketua_pda?: string;
   ketua_pca?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Teacher {
@@ -73,7 +75,7 @@ export interface Teacher {
   pendidikan: string; // e.g., S1 PAUD, D3
   jurusan: string;
   tmt: string; // Tanggal Mulai Tugas
-  status_guru: 'Negeri - PPPK' | 'Negeri - Depag' | 'Negeri - Instansi Lain' | 'Guru Bantu' | 'Swasta - GTY' | 'Swasta - GTT WB' | 'Swasta GTT PNS';
+  status_guru: string;
   jabatan: string; // Kepala Sekolah, Guru Kelas, Guru Pendamping, dll.
   golongan: string; // e.g., III/a, -
   honor: number; // Bulanan honor
@@ -84,6 +86,8 @@ export interface Teacher {
   foto_url: string;
   tahun_pelajaran?: string;
   semester?: 'Ganjil' | 'Genap';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Student {
@@ -111,6 +115,8 @@ export interface Student {
   tahun_masuk: string;
   tahun_pelajaran: string;
   semester: 'Ganjil' | 'Genap';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type ReportStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
@@ -126,6 +132,11 @@ export interface Report {
   jumlah_ruangan: number;
   status: ReportStatus;
   notes: string;
+  tahun?: number;
+  jumlah_guru?: number;
+  jumlah_siswa?: number;
+  persentase_kehadiran_guru?: number;
+  persentase_kehadiran_siswa?: number;
   created_at: string;
   updated_at: string;
 }
@@ -200,4 +211,20 @@ export interface SystemSettings {
   super_admin_password?: string;
   admin_password?: string;
   petugas_password?: string;
+}
+
+export interface SKGuru {
+  id: string;
+  school_id: string;
+  teacher_id: string;
+  no_sk: string;
+  tanggal_sk: string;
+  jenis_sk: string;
+  tmt_sk: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  notes: string;
+  gaji_pokok?: number;
+  tunjangan?: number;
+  created_at: string;
+  updated_at: string;
 }

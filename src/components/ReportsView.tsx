@@ -536,7 +536,7 @@ export default function ReportsView({
             </span>
             <div>
               <h3 className="font-extrabold text-sm tracking-wide">SIABA - Mode Layar Penuh (Fullscreen)</h3>
-              <p className="text-[10px] text-brand-200 font-semibold uppercase tracking-wider">Pimpinan Cabang Aisyiyah Bagian Dikdasmen Klaten Utara</p>
+              <p className="text-[10px] text-brand-200 font-semibold uppercase tracking-wider">Sistem Informasi Administrasi Aisyiyah Bustanul Athfal (SIABA)</p>
             </div>
           </div>
           <button
@@ -1477,9 +1477,11 @@ export default function ReportsView({
                         <div className="flex-1 text-center">
                           <h2 className="text-[11px] uppercase font-black tracking-widest text-emerald-800 leading-none">LAPORAN BULANAN</h2>
                           <h1 className="text-[14px] font-extrabold text-slate-900 uppercase font-sans mt-1">BUSTANUL ATHFAL AISYIYAH</h1>
-                          <h2 className="text-[11px] font-bold text-slate-800 uppercase font-sans mt-0.5">DAERAH KLATEN</h2>
+                          <h2 className="text-[11px] font-bold text-slate-800 uppercase font-sans mt-0.5">
+                            DAERAH {getSchoolDetails(selectedReport.school_id)?.kabupaten ? (getSchoolDetails(selectedReport.school_id)?.kabupaten.toUpperCase()) : 'KLATEN'}
+                          </h2>
                           <p className="text-[8px] text-slate-500 mt-0.5 font-medium leading-none">
-                            Pimpinan Cabang Aisyiyah Bagian Dikdasmen Klaten Utara Daerah Klaten.
+                            Pimpinan Cabang Aisyiyah Bagian Dikdasmen {getSchoolDetails(selectedReport.school_id)?.kecamatan || 'Klaten Utara'} Daerah {getSchoolDetails(selectedReport.school_id)?.kabupaten || 'Klaten'}.
                           </p>
                         </div>
                         {/* Right QR Code or similar */}
@@ -1693,7 +1695,7 @@ export default function ReportsView({
 
                   {/* Page Footer Label */}
                   <div className="text-center text-[8px] text-slate-400 font-mono border-t border-slate-100 pt-2">
-                    Laporan Bulanan ABA Klaten | Halaman 1 dari 2
+                    Laporan Bulanan ABA {getSchoolDetails(selectedReport.school_id)?.kabupaten || 'Klaten'} | Halaman 1 dari 2
                   </div>
                 </div>
 
@@ -2019,19 +2021,19 @@ export default function ReportsView({
                         {/* Space for stempel / signature */}
                         <div className="h-14 flex items-center justify-center relative my-1">
                           <div className="border border-emerald-500/20 bg-emerald-50/10 rounded-lg text-[6.5px] px-2 py-1 rotate-3 w-28 uppercase font-bold text-emerald-700/40 border-dashed">
-                            PDA MAJELIS PAUD KLATEN
+                            PDA MAJELIS PAUD {getSchoolDetails(selectedReport.school_id)?.kabupaten ? getSchoolDetails(selectedReport.school_id)!.kabupaten.toUpperCase() : 'KLATEN'}
                           </div>
                         </div>
                         
                         <div>
-                          <span className="font-extrabold underline block leading-none">Ensapt Sri Mulat, S.Psi., M.Si.Psikolog</span>
+                          <span className="font-extrabold underline block leading-none">{getSchoolDetails(selectedReport.school_id)?.ketua_pda || 'Ensapt Sri Mulat, S.Psi., M.Si.Psikolog'}</span>
                           <span className="text-slate-500 font-mono text-[8px] block mt-0.5 font-bold">NBM. 1243524</span>
                         </div>
                       </div>
 
                       <div className="flex flex-col items-center justify-between">
                         <div>
-                          <span className="text-slate-500 block leading-none mb-1 font-bold">Klaten, tgl. 31 {selectedReport.bulan} {String(selectedReport.tahun_pelajaran || '').includes('/') ? String(selectedReport.tahun_pelajaran).split('/')[0] : String(selectedReport.tahun_pelajaran || '2026')}</span>
+                          <span className="text-slate-500 block leading-none mb-1 font-bold">{getSchoolDetails(selectedReport.school_id)?.kabupaten || 'Klaten'}, tgl. 31 {selectedReport.bulan} {String(selectedReport.tahun_pelajaran || '').includes('/') ? String(selectedReport.tahun_pelajaran).split('/')[0] : String(selectedReport.tahun_pelajaran || '2026')}</span>
                           <span className="font-bold block">Kepala Sekolah {getSchoolName(selectedReport.school_id)}</span>
                         </div>
                         
@@ -2050,7 +2052,7 @@ export default function ReportsView({
 
                     {/* Page Footer Label */}
                     <div className="text-center text-[8px] text-slate-400 font-mono border-t border-slate-100 pt-3 mt-3">
-                      Laporan Bulanan ABA Klaten | Halaman 2 dari 2
+                      Laporan Bulanan ABA {getSchoolDetails(selectedReport.school_id)?.kabupaten || 'Klaten'} | Halaman 2 dari 2
                     </div>
                   </div>
                 </div>
@@ -2149,9 +2151,11 @@ export default function ReportsView({
                           <div className="flex-1 text-center">
                             <h2 className="text-[11px] uppercase font-black tracking-widest text-emerald-800 leading-none">LAPORAN BULANAN</h2>
                             <h1 className="text-[14px] font-extrabold text-slate-900 uppercase font-sans mt-1">BUSTANUL ATHFAL AISYIYAH</h1>
-                            <h2 className="text-[11px] font-bold text-slate-800 uppercase font-sans mt-0.5">DAERAH KLATEN</h2>
+                            <h2 className="text-[11px] font-bold text-slate-800 uppercase font-sans mt-0.5">
+                              DAERAH {school?.kabupaten ? school.kabupaten.toUpperCase() : 'KLATEN'}
+                            </h2>
                             <p className="text-[8px] text-slate-500 mt-0.5 font-medium leading-none">
-                              Pimpinan Cabang Aisyiyah Bagian Dikdasmen Klaten Utara Daerah Klaten.
+                              Pimpinan Cabang Aisyiyah Bagian Dikdasmen {school?.kecamatan || 'Klaten Utara'} Daerah {school?.kabupaten || 'Klaten'}.
                             </p>
                           </div>
                           <div className="border border-slate-300 p-1 rounded-lg shrink-0 flex flex-col items-center bg-slate-50">
@@ -2364,7 +2368,7 @@ export default function ReportsView({
 
                         <div className="space-y-12 text-center">
                           <div className="space-y-1">
-                            <p className="text-[8.5px] text-slate-500 font-mono">Klaten, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            <p className="text-[8.5px] text-slate-500 font-mono">{school.kabupaten || 'Klaten'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                             <p className="font-bold">Petugas Administrasi / Guru Kelas</p>
                           </div>
                           <div className="font-bold underline uppercase text-slate-900">

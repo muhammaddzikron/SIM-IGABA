@@ -764,7 +764,7 @@ export default function SchoolsView({
                       </div>
                       <div className="space-y-0.5 min-w-0 flex-1">
                         <h4 className="text-[9px] font-extrabold text-slate-900 uppercase truncate tracking-wider leading-none">
-                          PIMPINAN DAERAH AISYIYAH KOTA MALANG
+                          PIMPINAN DAERAH AISYIYAH {formFields.kabupaten ? (formFields.kabupaten.toUpperCase().includes('KABUPATEN') || formFields.kabupaten.toUpperCase().includes('KOTA') ? formFields.kabupaten.toUpperCase() : `KABUPATEN ${formFields.kabupaten.toUpperCase()}`) : 'KABUPATEN KLATEN'}
                         </h4>
                         <h3 className="text-sm font-black text-brand-700 uppercase truncate leading-tight">
                           {formFields.name || 'NAMA SEKOLAH'}
@@ -1641,7 +1641,7 @@ export default function SchoolsView({
               {/* Legal Notes / Disclaimer */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 text-[10px] text-slate-500 leading-relaxed font-sans print:border print:border-slate-300">
                 <p className="font-bold text-slate-700 uppercase tracking-wider mb-1">Catatan Keabsahan Dokumen:</p>
-                Dokumen ini merupakan ringkasan data profil satuan pendidikan yang sah dari Sistem Informasi Administrasi Aisyiyah Bustanul Athfal (SIABA) Kota Malang. Seluruh data yang tercantum disinkronkan secara real-time oleh petugas administrasi sekolah dan divalidasi oleh pimpinan majelis.
+                Dokumen ini merupakan ringkasan data profil satuan pendidikan yang sah dari Sistem Informasi Administrasi Aisyiyah Bustanul Athfal (SIABA) {selectedSchoolForView.kabupaten ? (selectedSchoolForView.kabupaten.toLowerCase().includes('kabupaten') || selectedSchoolForView.kabupaten.toLowerCase().includes('kota') ? selectedSchoolForView.kabupaten : `Kabupaten ${selectedSchoolForView.kabupaten}`) : 'Kabupaten Klaten'}. Seluruh data yang tercantum disinkronkan secara real-time oleh petugas administrasi sekolah dan divalidasi oleh pimpinan majelis.
               </div>
 
               {/* SIGNATURE SECTION (TANDA TANGAN KEPALA SEKOLAH DI BAWAH) */}

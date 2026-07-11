@@ -104,6 +104,85 @@ function getDefaultUsername(school: any): string {
   return usernameResult || 'tkabapetugas';
 }
 
+function getDynamicSeedSKGuru(teachers: any[], schools: any[]) {
+  const sks: any[] = [];
+  const teachersBySchool: Record<string, any[]> = {};
+  for (const t of teachers) {
+    if (!teachersBySchool[t.school_id]) {
+      teachersBySchool[t.school_id] = [];
+    }
+    teachersBySchool[t.school_id].push(t);
+  }
+
+  let skIdCounter = 1;
+  const schoolIds = Object.keys(teachersBySchool);
+
+  for (const sId of schoolIds) {
+    const schoolTeachers = teachersBySchool[sId];
+    if (!schoolTeachers || schoolTeachers.length === 0) continue;
+
+    const kepsek = schoolTeachers.find(t => String(t.jabatan || '').toLowerCase().includes('kepala')) || schoolTeachers[0];
+    const otherTeachers = schoolTeachers.filter(t => t.id !== kepsek.id);
+
+    const yearKepsek = kepsek.tmt ? (String(kepsek.tmt).match(/\d{4}/) ? String(kepsek.tmt).match(/\d{4}/)![0] : '2021') : '2021';
+    sks.push({
+      id: `sk-${skIdCounter++}`,
+      school_id: sId,
+      teacher_id: kepsek.id,
+      no_sk: `0${skIdCounter + 10}/SK.G/PDA/VII/${yearKepsek}`,
+      tanggal_sk: kepsek.tmt || '2021-07-01',
+      jenis_sk: String(kepsek.jabatan || '').toLowerCase().includes('kepala') ? 'Penetapan Kepala Sekolah' : 'Pengangkatan Guru Tetap Yayasan (GTY)',
+      tmt_sk: kepsek.tmt || '2021-07-01',
+      status: 'Approved',
+      notes: `SK Pengangkatan sebagai ${kepsek.jabatan || 'Kepala Sekolah'} otomatis oleh sistem SIM IGABA`,
+      gaji_pokok: 750000,
+      tunjangan: 250000,
+      created_at: new Date('2026-07-01T00:00:00.000Z').toISOString(),
+      updated_at: new Date('2026-07-01T00:00:00.000Z').toISOString()
+    });
+
+    if (otherTeachers.length > 0) {
+      const secondT = otherTeachers[0];
+      const yearSecond = secondT.tmt ? (String(secondT.tmt).match(/\d{4}/) ? String(secondT.tmt).match(/\d{4}/)![0] : '2022') : '2022';
+      sks.push({
+        id: `sk-${skIdCounter++}`,
+        school_id: sId,
+        teacher_id: secondT.id,
+        no_sk: `0${skIdCounter + 15}/SK.G/PDA/VII/${yearSecond}`,
+        tanggal_sk: secondT.tmt || '2022-07-15',
+        jenis_sk: secondT.status_guru === 'GTT' ? 'Pengangkatan Guru Tidak Tetap (GTT)' : 'Pengangkatan Guru Tetap Yayasan (GTY)',
+        tmt_sk: secondT.tmt || '2022-07-15',
+        status: 'Approved',
+        notes: `Pengangkatan ${secondT.status_guru || 'GTY'} otomatis`,
+        gaji_pokok: 500000,
+        tunjangan: 150000,
+        created_at: new Date('2026-07-02T00:00:00.000Z').toISOString(),
+        updated_at: new Date('2026-07-02T00:00:00.000Z').toISOString()
+      });
+    }
+
+    if (otherTeachers.length > 1) {
+      const thirdT = otherTeachers[1];
+      sks.push({
+        id: `sk-${skIdCounter++}`,
+        school_id: sId,
+        teacher_id: thirdT.id,
+        no_sk: '',
+        tanggal_sk: '2026-07-05',
+        jenis_sk: 'Pengangkatan Guru Tetap Yayasan (GTY)',
+        tmt_sk: '2026-07-15',
+        status: 'Pending',
+        notes: `Usulan kenaikan status menjadi GTY untuk ${thirdT.nama}`,
+        gaji_pokok: 600000,
+        tunjangan: 200000,
+        created_at: new Date('2026-07-11T00:00:00.000Z').toISOString(),
+        updated_at: new Date('2026-07-11T00:00:00.000Z').toISOString()
+      });
+    }
+  }
+  return sks;
+}
+
 let memoryDbCache: any = null;
 
 // Ensure database file exists
@@ -123,7 +202,8 @@ function loadLocalDatabase() {
     districts: seedDistricts,
     villages: seedVillages,
     logs: seedLogs,
-    settings: seedSettings
+    settings: seedSettings,
+    sk_guru: []
   });
 
   if (!fs.existsSync(DATA_FILE)) {
@@ -142,7 +222,7 @@ function loadLocalDatabase() {
     
     // Deduplicate any collection to prevent duplicate keys in local database
     let updatedLocal = false;
-    const collections = ['schools', 'teachers', 'students', 'reports', 'attendanceTeachers', 'attendanceStudents', 'inventories', 'logs'];
+    const collections = ['schools', 'teachers', 'students', 'reports', 'attendanceTeachers', 'attendanceStudents', 'inventories', 'logs', 'sk_guru'];
     for (const key of collections) {
       if (Array.isArray(db[key])) {
         const seen = new Set();
@@ -158,6 +238,11 @@ function loadLocalDatabase() {
         });
         db[key] = deduped;
       }
+    }
+
+    if (!db.sk_guru || !Array.isArray(db.sk_guru) || db.sk_guru.length === 0) {
+      db.sk_guru = getDynamicSeedSKGuru(db.teachers || [], db.schools || []);
+      updatedLocal = true;
     }
     
     // Self-healing: Ensure all seed schools exist in the schools list
@@ -558,7 +643,8 @@ const VALID_SHEETS = [
   'districts',
   'villages',
   'logs',
-  'settings'
+  'settings',
+  'sk_guru'
 ];
 
 // Helper to translate to sheet name in spreadsheet
@@ -574,7 +660,8 @@ function getAppsScriptSheetName(sheet: string): string {
     districts: 'Districts',
     villages: 'Villages',
     logs: 'Logs',
-    settings: 'Settings'
+    settings: 'Settings',
+    sk_guru: 'SK_Guru'
   };
   return map[sheet] || sheet;
 }
@@ -604,9 +691,9 @@ app.get('/api/sheets/:sheet', async (req, res) => {
           !scriptData.some((s: any) => String(s.id) === String(localSch.id))
         );
 
-        // Only run seeder if not seeded yet, or if spreadsheet schools are completely empty/missing keys, or some schools are missing
-        if (missingSchools.length > 0 || !db.settings.schools_seeded_to_sheets || scriptData.length === 0) {
-          console.log(`[Auto-Sync] Seeding or healing schools to Google Sheets (Missing count: ${missingSchools.length})...`);
+        // Only run seeder if some schools are missing or if spreadsheet schools are completely empty/missing keys
+        if (missingSchools.length > 0 || scriptData.length === 0) {
+          console.log(`[Auto-Sync] Seeding missing schools to Google Sheets (Missing count: ${missingSchools.length})...`);
           
           for (const localSch of localSchools) {
             const found = scriptData.find((s: any) => String(s.id) === String(localSch.id));
@@ -619,31 +706,13 @@ app.get('/api/sheets/:sheet', async (req, res) => {
               } catch (syncErr: any) {
                 console.error(`Failed to seed school ${localSch.id}:`, syncErr.message);
               }
-            } else {
-              // Check if name or banner needs update to ensure sample completeness
-              const needsUpdate = found.name !== localSch.name || 
-                                  (localSch.foto_url && found.foto_url !== localSch.foto_url);
-              if (needsUpdate) {
-                console.log(`[Auto-Sync] Syncing name/banner for school: ${localSch.name} (${localSch.id})`);
-                try {
-                  const merged = { ...found, ...localSch };
-                  await proxyToAppsScript('update', 'Schools', merged, localSch.id, req);
-                  const idx = scriptData.findIndex((s: any) => String(s.id) === String(localSch.id));
-                  if (idx !== -1) {
-                    scriptData[idx] = merged;
-                  }
-                  updatedAny = true;
-                } catch (syncErr: any) {
-                  console.error(`Failed to sync update for school ${localSch.id}:`, syncErr.message);
-                }
-              }
             }
           }
 
-          // Mark as seeded so we don't spam requests on subsequent loads
+          // Mark as seeded in settings to prevent unnecessary checking
           db.settings.schools_seeded_to_sheets = true;
           saveLocalDatabase(db);
-          console.log('[Auto-Sync] Finished seeding/healing 8 sample schools.');
+          console.log('[Auto-Sync] Finished seeding missing schools.');
         }
       }
 
@@ -1316,6 +1385,111 @@ app.post('/api/backup/import', (req, res) => {
 // VITE CLIENT MIDDLEWARE & ROUTING
 // ----------------------------------------
 
+async function syncDatabaseOnStartup() {
+  console.log('[Startup Sync] Initializing background sync with Google Sheets...');
+  const db = loadLocalDatabase();
+  const scriptUrl = db.settings?.google_apps_script_url || process.env.GOOGLE_APPS_SCRIPT_URL;
+  if (!scriptUrl) {
+    console.log('[Startup Sync] Google Apps Script URL not configured in settings, skipping sync.');
+    return;
+  }
+
+  const sheetsToSync = ['schools', 'teachers', 'students', 'reports'];
+  for (const sheet of sheetsToSync) {
+    try {
+      const appsScriptSheet = getAppsScriptSheetName(sheet);
+      console.log(`[Startup Sync] Syncing sheet "${sheet}" (${appsScriptSheet}) from Google Sheets...`);
+      const scriptData = await proxyToAppsScript('list', appsScriptSheet, undefined, undefined, undefined);
+      if (Array.isArray(scriptData) && scriptData.length > 0) {
+        // Normalize
+        let normalized = scriptData.filter((item: any) => item && item.id);
+        
+        // Deduplicate
+        const seenIds = new Set();
+        normalized = normalized.filter((item: any) => {
+          const idStr = String(item.id);
+          if (seenIds.has(idStr)) return false;
+          seenIds.add(idStr);
+          return true;
+        });
+
+        if (sheet === 'schools') {
+          normalized = normalized.map((s: any) => {
+            const username = s.username_petugas || getDefaultUsername(s);
+            const password = s.password_petugas || 'petugas';
+            return {
+              ...s,
+              username_petugas: username,
+              password_petugas: password,
+            };
+          });
+        }
+
+        if (sheet === 'teachers') {
+          normalized = normalized.map((item: any) => {
+            const possibleHonorKeys = [
+              'Honorarium Bulanan (Rp)',
+              'Honor Bulanan (Rp)',
+              'Honorarium Bulanan',
+              'Honor Bulanan',
+              'Honor (Rp)',
+              'honor'
+            ];
+            let honorVal = undefined;
+            for (const key of possibleHonorKeys) {
+              if (item[key] !== undefined && item[key] !== null) {
+                honorVal = item[key];
+                break;
+              }
+            }
+            let parsedHonor = 0;
+            if (honorVal !== undefined && honorVal !== null) {
+              if (typeof honorVal === 'number') {
+                parsedHonor = honorVal;
+              } else {
+                const str = String(honorVal).trim();
+                const digits = str.replace(/[^0-9]/g, '');
+                parsedHonor = parseInt(digits, 10) || 0;
+              }
+            }
+            return { ...item, honor: parsedHonor };
+          });
+        }
+
+        if (sheet === 'reports') {
+          normalized = normalized.map((item: any) => {
+            let status = item.status || item.status_laporan || 'Submitted';
+            if (status.toLowerCase() === 'approved') status = 'Approved';
+            if (status.toLowerCase() === 'submitted') status = 'Submitted';
+            if (status.toLowerCase() === 'rejected') status = 'Rejected';
+            if (status.toLowerCase() === 'draft') status = 'Draft';
+
+            return {
+              ...item,
+              tahun_pelajaran: item.tahun_pelajaran || item.tahun || '2025/2026',
+              semester: item.semester || 'Ganjil',
+              hari_belajar: item.hari_belajar !== undefined ? Number(item.hari_belajar) : 22,
+              status_gedung: item.status_gedung || 'Milik Sendiri',
+              jumlah_ruangan: item.jumlah_ruangan !== undefined ? Number(item.jumlah_ruangan) : 4,
+              status: status,
+              notes: item.notes || item.catatan || '',
+            };
+          });
+        }
+
+        // Save
+        const currentDb = loadLocalDatabase();
+        currentDb[sheet] = normalized;
+        saveLocalDatabase(currentDb);
+        console.log(`[Startup Sync] Successfully synced ${normalized.length} records for "${sheet}".`);
+      }
+    } catch (err: any) {
+      console.error(`[Startup Sync] Failed to sync "${sheet}":`, err.message);
+    }
+  }
+  console.log('[Startup Sync] Finished background database sync.');
+}
+
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -1334,6 +1508,10 @@ async function start() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] Running at http://0.0.0.0:${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+    // Run background sync
+    syncDatabaseOnStartup().catch(err => {
+      console.error('[Startup Sync] Error running background sync:', err);
+    });
   });
 }
 

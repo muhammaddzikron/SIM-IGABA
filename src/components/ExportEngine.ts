@@ -319,7 +319,7 @@ export const ExportEngine = {
 
     // 6. SIGNATURES FOOTER
     worksheet.addRow([]);
-    const signRow1 = worksheet.addRow(['', '', '', '', '', 'Malang, ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })]);
+    const signRow1 = worksheet.addRow(['', '', '', '', '', (school.kabupaten || 'Klaten') + ', ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })]);
     const signRow2 = worksheet.addRow(['', 'Mengetahui,', '', '', '', 'Dibuat Oleh,']);
     const signRow3 = worksheet.addRow(['', 'Kepala Sekolah', '', '', '', 'Petugas Administrasi']);
     worksheet.addRow([]);
@@ -626,7 +626,7 @@ export const ExportEngine = {
 
       // 6. SIGNATURES FOOTER
       worksheet.addRow([]);
-      const signRow1 = worksheet.addRow(['', '', '', '', '', 'Malang, ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })]);
+      const signRow1 = worksheet.addRow(['', '', '', '', '', (school.kabupaten || 'Klaten') + ', ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })]);
       const signRow2 = worksheet.addRow(['', 'Mengetahui,', '', '', '', 'Dibuat Oleh,']);
       const signRow3 = worksheet.addRow(['', 'Kepala Sekolah', '', '', '', 'Petugas Administrasi']);
       worksheet.addRow([]);

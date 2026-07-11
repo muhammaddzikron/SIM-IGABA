@@ -17,6 +17,7 @@ import StudentsView from './components/StudentsView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import LogsView from './components/LogsView';
+import SKGuruView from './components/SKGuruView';
 
 import { Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 
@@ -318,6 +319,15 @@ export default function App() {
               teachers={teachers}
               students={students}
               onReportCreated={fetchAllData}
+            />
+          )}
+
+          {activeTab === 'sk_guru' && (
+            <SKGuruView
+              user={user}
+              teachers={teachers}
+              schools={schools}
+              onRefresh={fetchAllData}
             />
           )}
 

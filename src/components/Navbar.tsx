@@ -20,7 +20,8 @@ import {
   Users,
   GraduationCap,
   ClipboardList,
-  History
+  History,
+  FileCheck
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -56,6 +57,7 @@ export default function Navbar({
     { id: 'teachers', label: 'Master Guru', icon: Users },
     { id: 'students', label: 'Data Murid', icon: GraduationCap },
     { id: 'reports', label: 'Laporan Bulanan', icon: ClipboardList },
+    { id: 'sk_guru', label: (isSuperAdmin || user.role === 'ADMIN') ? 'Pengelolaan SK Guru' : 'Pengajuan SK Guru', icon: FileCheck },
     ...((isSuperAdmin || user.role === 'ADMIN' || user.role === 'PETUGAS') ? [
       { id: 'settings', label: 'Pengaturan', icon: Settings }
     ] : []),
@@ -76,6 +78,8 @@ export default function Navbar({
         return 'Data Siswa Aktif';
       case 'reports':
         return 'Laporan Bulanan';
+      case 'sk_guru':
+        return (isSuperAdmin || user.role === 'ADMIN') ? 'Pengelolaan SK Guru' : 'Pengajuan SK Guru';
       case 'settings':
         return 'Pengaturan Sistem';
       case 'logs':
