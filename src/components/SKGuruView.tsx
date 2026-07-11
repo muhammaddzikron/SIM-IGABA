@@ -57,22 +57,27 @@ export default function SKGuruView({
   const [filterStatus, setFilterStatus] = useState('ALL');
 
   // Modal States
-  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  // Submit Feedback States
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Selected Item States
   const [selectedSK, setSelectedSK] = useState<SKGuru | null>(null);
 
   // Form Fields State (New Application)
   const [formFields, setFormFields] = useState({
+    school_id: isPetugas ? (user.school_id || '') : '',
     teacher_id: '',
     jenis_sk: 'Pengangkatan Guru Tetap Yayasan (GTY)',
     tmt_sk: new Date().toISOString().split('T')[0],
     gaji_pokok: 600000,
     tunjangan: 200000,
-    notes: ''
+    notes: '',
+    tahun_mengajar: '2025/2026'
   });
 
   // Approval Form State
@@ -158,48 +163,60 @@ export default function SKGuruView({
   const statPending = activeSks.filter(s => s.status === 'Pending').length;
   const statRejected = activeSks.filter(s => s.status === 'Rejected').length;
 
-  // Handle Create SK Proposal (Petugas)
+  // Handle Create SK Proposal (Petugas or Admin)
   const handleCreateSK = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitSuccess(null);
+    setSubmitError(null);
+
+    const targetSchoolId = isPetugas ? user.school_id : formFields.school_id;
+    if (!targetSchoolId) {
+      setSubmitError('Pilih sekolah terlebih dahulu.');
+      return;
+    }
     if (!formFields.teacher_id) {
-      alert('Pilih guru terlebih dahulu');
+      setSubmitError('Pilih guru terlebih dahulu.');
       return;
     }
 
     try {
       setProcessing(true);
       const newSk: Partial<SKGuru> = {
-        school_id: user.school_id,
+        school_id: targetSchoolId,
         teacher_id: formFields.teacher_id,
         no_sk: '', // Pending SK doesn't have an official number yet
         tanggal_sk: new Date().toISOString().split('T')[0],
         jenis_sk: formFields.jenis_sk,
         tmt_sk: formFields.tmt_sk,
         status: 'Pending',
-        notes: formFields.notes,
+        notes: formFields.notes || `Pengajuan SK Mengajar Tahun ${formFields.tahun_mengajar}`,
         gaji_pokok: Number(formFields.gaji_pokok) || 0,
-        tunjangan: Number(formFields.tunjangan) || 0
+        tunjangan: Number(formFields.tunjangan) || 0,
+        tahun_mengajar: formFields.tahun_mengajar
       };
 
       const res = await ApiService.createItem<SKGuru>('sk_guru', newSk);
       if (res.success) {
-        setIsSubmitModalOpen(false);
+        setSubmitSuccess('Pengajuan SK Guru berhasil dikirim!');
         // Reset form
         setFormFields({
+          school_id: isPetugas ? (user.school_id || '') : '',
           teacher_id: '',
           jenis_sk: 'Pengangkatan Guru Tetap Yayasan (GTY)',
           tmt_sk: new Date().toISOString().split('T')[0],
           gaji_pokok: 600000,
           tunjangan: 200000,
-          notes: ''
+          notes: '',
+          tahun_mengajar: '2025/2026'
         });
         await fetchSks();
         onRefresh();
       } else {
-        alert(res.message || 'Gagal mengajukan SK');
+        setSubmitError(res.message || 'Gagal mengajukan SK');
       }
     } catch (err: any) {
-      alert('Terjadi kesalahan: ' + err.message);
+      console.error('Error submitting SK:', err);
+      setSubmitError('Terjadi kesalahan koneksi saat mengirim pengajuan.');
     } finally {
       setProcessing(false);
     }
@@ -302,7 +319,10 @@ export default function SKGuruView({
   };
 
   // Filter teachers for the selection dropdown (Active school only, and doesn't already have a pending SK)
-  const schoolTeachers = teachers.filter(t => t.school_id === user.school_id);
+  const selectedFormSchoolId = isPetugas ? user.school_id : formFields.school_id;
+  const schoolTeachers = selectedFormSchoolId 
+    ? teachers.filter(t => t.school_id === selectedFormSchoolId) 
+    : [];
   const eligibleTeachers = schoolTeachers.filter(t => {
     const hasPendingSK = sks.some(s => s.teacher_id === t.id && s.status === 'Pending');
     return !hasPendingSK;
@@ -327,16 +347,6 @@ export default function SKGuruView({
               : 'Ajukan usulan Surat Keputusan (SK) Guru Tetap Yayasan (GTY) atau guru pendamping ke PDA.'}
           </p>
         </div>
-        
-        {isPetugas && (
-          <button
-            onClick={() => setIsSubmitModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md cursor-pointer transition-all shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Ajukan SK Guru Baru</span>
-          </button>
-        )}
       </div>
 
       {/* Statistics Cards */}
@@ -386,362 +396,408 @@ export default function SKGuruView({
         </div>
       </div>
 
-      {/* Filters Area */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:max-w-xs">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari guru, nomor SK, atau jenis..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200/80 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-600 focus:bg-white text-slate-700 transition-all font-medium"
-          />
-        </div>
+      {/* Split Grid Layout: Left Column = Form, Right Column = Filters & Table */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Form Pengajuan Baru */}
+        <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-200/60 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2 text-green-700">
+              <FileCheck className="w-5 h-5 text-green-600" />
+              Buat Pengajuan Baru
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Isi data di bawah ini untuk mengajukan usulan SK mengajar baru ke Pimpinan Daerah Aisyiyah Klaten.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
-          {/* School filter for Admins */}
-          {isAdminOrSuper && (
-            <div className="flex items-center gap-1.5 w-full md:w-auto">
-              <Building className="w-4 h-4 text-slate-400 shrink-0" />
-              <select
-                value={filterSchool}
-                onChange={(e) => setFilterSchool(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600 focus:outline-none w-full md:w-48 font-semibold"
-              >
-                <option value="ALL">Semua Sekolah</option>
-                {schools.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+          {submitSuccess && (
+            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2 text-xs text-emerald-800 font-medium">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{submitSuccess}</span>
             </div>
           )}
 
-          {/* Status filter */}
-          <div className="flex items-center gap-1.5 w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600 focus:outline-none w-full md:w-40 font-semibold"
+          {submitError && (
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-xs text-rose-800 font-medium">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleCreateSK} className="space-y-4">
+            {/* School Selector (Admin Only) */}
+            {!isPetugas && (
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Pilih Sekolah <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formFields.school_id}
+                  onChange={(e) => {
+                    setFormFields(prev => ({
+                      ...prev,
+                      school_id: e.target.value,
+                      teacher_id: '' // Reset selected teacher
+                    }));
+                  }}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium cursor-pointer"
+                >
+                  <option value="">-- Pilih Sekolah --</option>
+                  {schools.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.jenjang})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Teacher Selector */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Pilih Guru <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formFields.teacher_id}
+                onChange={(e) => setFormFields(prev => ({ ...prev, teacher_id: e.target.value }))}
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium cursor-pointer"
+              >
+                <option value="">
+                  {!isPetugas && !formFields.school_id 
+                    ? 'Pilih sekolah terlebih dahulu' 
+                    : '-- Pilih Guru --'}
+                </option>
+                {eligibleTeachers.map(t => (
+                  <option key={t.id} value={t.id}>{t.nama} - {t.jabatan || 'Guru'}</option>
+                ))}
+              </select>
+              {eligibleTeachers.length === 0 && (formFields.school_id || isPetugas) && (
+                <p className="text-[10px] text-amber-600 font-medium italic mt-1">
+                  Semua guru di sekolah ini telah memiliki pengajuan SK aktif.
+                </p>
+              )}
+            </div>
+
+            {/* Academic Year and TMT */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Tahun Pelajaran <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formFields.tahun_mengajar}
+                  onChange={(e) => setFormFields(prev => ({ ...prev, tahun_mengajar: e.target.value }))}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium cursor-pointer"
+                >
+                  <option value="2024/2025">2024/2025</option>
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2026/2027">2026/2027</option>
+                  <option value="2027/2028">2027/2028</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  TMT SK <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formFields.tmt_sk}
+                  onChange={(e) => setFormFields(prev => ({ ...prev, tmt_sk: e.target.value }))}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Jenis SK */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Jenis SK <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formFields.jenis_sk}
+                onChange={(e) => setFormFields(prev => ({ ...prev, jenis_sk: e.target.value }))}
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium cursor-pointer"
+              >
+                <option value="Pembagian Tugas Mengajar">Pembagian Tugas Mengajar (SK Mengajar)</option>
+                <option value="Pengangkatan Guru Tetap Yayasan (GTY)">Pengangkatan Guru Tetap Yayasan (GTY)</option>
+                <option value="Pengangkatan Guru Tidak Tetap (GTT)">Pengangkatan Guru Tidak Tetap (GTT)</option>
+                <option value="Penetapan Kepala Sekolah">Penetapan Kepala Sekolah</option>
+              </select>
+            </div>
+
+            {/* Financial fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Usulan Gaji Pokok
+                </label>
+                <div className="relative">
+                  <span className="text-[10px] font-bold text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formFields.gaji_pokok}
+                    onChange={(e) => setFormFields(prev => ({ ...prev, gaji_pokok: Number(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Usulan Tunjangan
+                </label>
+                <div className="relative">
+                  <span className="text-[10px] font-bold text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formFields.tunjangan}
+                    onChange={(e) => setFormFields(prev => ({ ...prev, tunjangan: Number(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Catatan / Keterangan Usulan
+              </label>
+              <textarea
+                value={formFields.notes}
+                onChange={(e) => setFormFields(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Misalnya: Pengusulan SK Mengajar Semester Ganjil..."
+                rows={2}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium"
+              />
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={processing || (!isPetugas && !formFields.school_id)}
+              className="w-full bg-green-700 hover:bg-green-800 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
             >
-              <option value="ALL">Semua Status</option>
-              <option value="Pending">Menunggu Approval</option>
-              <option value="Approved">Disetujui</option>
-              <option value="Rejected">Ditolak</option>
-            </select>
+              {processing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileCheck className="w-4 h-4" />
+              )}
+              <span>Kirim Pengajuan SK Guru</span>
+            </button>
+          </form>
+        </div>
+
+        {/* Right Column: Filters and Main List Table */}
+        <div className="lg:col-span-8 space-y-4">
+          {/* Filters Area */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full md:max-w-xs">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari guru, nomor SK, atau jenis..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200/80 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-600 focus:bg-white text-slate-700 transition-all font-medium"
+              />
+            </div>
+
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
+              {/* School filter for Admins */}
+              {isAdminOrSuper && (
+                <div className="flex items-center gap-1.5 w-full md:w-auto">
+                  <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                  <select
+                    value={filterSchool}
+                    onChange={(e) => setFilterSchool(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600 focus:outline-none w-full md:w-48 font-semibold cursor-pointer"
+                  >
+                    <option value="ALL">Semua Sekolah</option>
+                    {schools.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Status filter */}
+              <div className="flex items-center gap-1.5 w-full md:w-auto">
+                <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600 focus:outline-none w-full md:w-40 font-semibold cursor-pointer"
+                >
+                  <option value="ALL">Semua Status</option>
+                  <option value="Pending">Menunggu Approval</option>
+                  <option value="Approved">Disetujui</option>
+                  <option value="Rejected">Ditolak</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Main List */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-green-700" />
+                <span className="text-xs text-slate-400 font-semibold">Memuat berkas SK Guru...</span>
+              </div>
+            ) : error ? (
+              <div className="py-16 text-center">
+                <div className="inline-flex p-3 bg-red-50 text-red-600 rounded-2xl mb-3">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <p className="text-xs font-bold text-slate-800">{error}</p>
+                <button
+                  onClick={fetchSks}
+                  className="mt-3 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
+                >
+                  Coba Lagi
+                </button>
+              </div>
+            ) : filteredSks.length === 0 ? (
+              <div className="py-20 text-center text-slate-400">
+                <FileText className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
+                <p className="text-xs font-bold mt-4 text-slate-500">Tidak ada pengajuan SK ditemukan</p>
+                <p className="text-[11px] text-slate-400 mt-1">Coba sesuaikan kata kunci atau filter pencarian Anda.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3.5 px-4 font-sans">Nama Guru & Sekolah</th>
+                      <th className="py-3.5 px-4 font-sans">Jenis SK</th>
+                      <th className="py-3.5 px-4 font-sans">Nomor SK</th>
+                      <th className="py-3.5 px-4 font-sans text-center">TMT SK</th>
+                      <th className="py-3.5 px-4 font-sans text-center">Status</th>
+                      <th className="py-3.5 px-4 font-sans text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSks.map(sk => {
+                      const teacher = getTeacherDetails(sk.teacher_id);
+                      const school = getSchoolDetails(sk.school_id);
+
+                      return (
+                        <tr key={sk.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3.5 px-4 font-sans">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                                {teacher?.nama.charAt(0) || 'G'}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-800 text-sm leading-tight">{teacher?.nama || 'N/A'}</p>
+                                <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+                                  <Building className="w-3 h-3 text-slate-400" />
+                                  {school?.name || 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-sans font-medium text-slate-700">
+                            {sk.jenis_sk}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
+                            {sk.status === 'Approved' ? (
+                              sk.no_sk || '-'
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-sans font-semibold">Belum Diterbitkan</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-center text-slate-600 font-semibold">
+                            {new Date(sk.tmt_sk).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            {sk.status === 'Approved' && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                <CheckCircle className="w-3 h-3" />
+                                Disetujui
+                              </span>
+                            )}
+                            {sk.status === 'Pending' && (
+                              <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full text-[10px] font-bold animate-pulse">
+                                <Clock className="w-3 h-3" />
+                                Diproses
+                              </span>
+                            )}
+                            {sk.status === 'Rejected' && (
+                              <span className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                <XCircle className="w-3 h-3" />
+                                Ditolak
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-sans">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Print / View Decree Document */}
+                              {sk.status === 'Approved' && (
+                                <button
+                                  onClick={() => openPreviewDialog(sk)}
+                                  className="inline-flex items-center gap-1 bg-green-50 border border-green-200 hover:bg-green-100 text-green-700 font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  <span>Cetak SK</span>
+                                </button>
+                              )}
+
+                              {/* Approval controls for admin */}
+                              {isAdminOrSuper && sk.status === 'Pending' && (
+                                <>
+                                  <button
+                                    onClick={() => openApproveDialog(sk)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
+                                  >
+                                    Setujui
+                                  </button>
+                                  <button
+                                    onClick={() => openRejectDialog(sk)}
+                                    className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
+                                  >
+                                    Tolak
+                                  </button>
+                                </>
+                              )}
+
+                              {/* Information for rejected / other statuses */}
+                              {sk.status === 'Rejected' && (
+                                <div className="relative group">
+                                  <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
+                                    <Info className="w-4 h-4" />
+                                  </button>
+                                  <div className="absolute right-0 bottom-full mb-1 w-48 bg-slate-800 text-white p-2 rounded-lg text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-10 font-sans text-left">
+                                    <p className="font-bold border-b border-white/20 pb-1 mb-1">Catatan Penolakan:</p>
+                                    <p className="italic">{sk.notes || 'Tidak ada alasan khusus.'}</p>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {sk.status === 'Pending' && isPetugas && (
+                                <span className="text-[10px] text-slate-400 font-semibold italic flex items-center gap-1 px-1 py-1 bg-slate-50 rounded-lg">
+                                  Menunggu PDA
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Main List */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-green-700" />
-            <span className="text-xs text-slate-400 font-semibold">Memuat berkas SK Guru...</span>
-          </div>
-        ) : error ? (
-          <div className="py-16 text-center">
-            <div className="inline-flex p-3 bg-red-50 text-red-600 rounded-2xl mb-3">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <p className="text-xs font-bold text-slate-800">{error}</p>
-            <button
-              onClick={fetchSks}
-              className="mt-3 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
-            >
-              Coba Lagi
-            </button>
-          </div>
-        ) : filteredSks.length === 0 ? (
-          <div className="py-20 text-center text-slate-400">
-            <FileText className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
-            <p className="text-xs font-bold mt-4 text-slate-500">Tidak ada pengajuan SK ditemukan</p>
-            <p className="text-[11px] text-slate-400 mt-1">Coba sesuaikan kata kunci atau filter pencarian Anda.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3.5 px-4 font-sans">Nama Guru & Sekolah</th>
-                  <th className="py-3.5 px-4 font-sans">Jenis SK</th>
-                  <th className="py-3.5 px-4 font-sans">Nomor SK</th>
-                  <th className="py-3.5 px-4 font-sans text-center">TMT SK</th>
-                  <th className="py-3.5 px-4 font-sans text-center">Status</th>
-                  <th className="py-3.5 px-4 font-sans text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredSks.map(sk => {
-                  const teacher = getTeacherDetails(sk.teacher_id);
-                  const school = getSchoolDetails(sk.school_id);
-
-                  return (
-                    <tr key={sk.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3.5 px-4 font-sans">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
-                            {teacher?.nama.charAt(0) || 'G'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm leading-tight">{teacher?.nama || 'N/A'}</p>
-                            <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
-                              <Building className="w-3 h-3 text-slate-400" />
-                              {school?.name || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-sans font-medium text-slate-700">
-                        {sk.jenis_sk}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
-                        {sk.status === 'Approved' ? (
-                          sk.no_sk || '-'
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-sans font-semibold">Belum Diterbitkan</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-center text-slate-600 font-semibold">
-                        {new Date(sk.tmt_sk).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {sk.status === 'Approved' && (
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                            <CheckCircle className="w-3 h-3" />
-                            Disetujui
-                          </span>
-                        )}
-                        {sk.status === 'Pending' && (
-                          <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full text-[10px] font-bold animate-pulse">
-                            <Clock className="w-3 h-3" />
-                            Diproses
-                          </span>
-                        )}
-                        {sk.status === 'Rejected' && (
-                          <span className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                            <XCircle className="w-3 h-3" />
-                            Ditolak
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-sans">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Print / View Decree Document */}
-                          {sk.status === 'Approved' && (
-                            <button
-                              onClick={() => openPreviewDialog(sk)}
-                              className="inline-flex items-center gap-1 bg-green-50 border border-green-200 hover:bg-green-100 text-green-700 font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>Cetak SK</span>
-                            </button>
-                          )}
-
-                          {/* Approval controls for admin */}
-                          {isAdminOrSuper && sk.status === 'Pending' && (
-                            <>
-                              <button
-                                onClick={() => openApproveDialog(sk)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
-                              >
-                                Setujui
-                              </button>
-                              <button
-                                onClick={() => openRejectDialog(sk)}
-                                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-3 py-1.5 rounded-xl cursor-pointer text-[11px] transition-colors"
-                              >
-                                Tolak
-                              </button>
-                            </>
-                          )}
-
-                          {/* Information for rejected / other statuses */}
-                          {sk.status === 'Rejected' && (
-                            <div className="relative group">
-                              <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
-                                <Info className="w-4 h-4" />
-                              </button>
-                              <div className="absolute right-0 bottom-full mb-1 w-48 bg-slate-800 text-white p-2 rounded-lg text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-10 font-sans text-left">
-                                <p className="font-bold border-b border-white/20 pb-1 mb-1">Catatan Penolakan:</p>
-                                <p className="italic">{sk.notes || 'Tidak ada alasan khusus.'}</p>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {sk.status === 'Pending' && isPetugas && (
-                            <span className="text-[10px] text-slate-400 font-semibold italic flex items-center gap-1 px-1 py-1 bg-slate-50 rounded-lg">
-                              Menunggu PDA
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* MODAL: SUBMIT NEW SK (Petugas Only) */}
-      <AnimatePresence>
-        {isSubmitModalOpen && createPortal(
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white w-full max-h-[85vh] sm:max-h-[90vh] rounded-3xl sm:max-w-xl shadow-2xl border border-slate-100 flex flex-col relative overflow-hidden"
-            >
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-                <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2 text-green-700">
-                  <FileCheck className="w-5 h-5" />
-                  Pengajuan SK Guru Baru
-                </h3>
-                <button
-                  onClick={() => setIsSubmitModalOpen(false)}
-                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateSK} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="p-6 space-y-4 flex-1 overflow-y-auto no-scrollbar font-sans text-xs text-slate-700">
-                  {eligibleTeachers.length === 0 ? (
-                    <div className="p-4 bg-amber-50 border border-amber-100 text-amber-800 rounded-2xl flex items-start gap-2.5">
-                      <Info className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
-                      <div>
-                        <p className="font-bold">Seluruh Guru Sudah Memiliki SK</p>
-                        <p className="text-[11px] mt-0.5">Tidak ditemukan guru aktif yang belum diajukan SK-nya. Jika ingin merevisi atau mengusulkan SK baru, pastikan status SK sebelumnya selesai diproses.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Teacher Selection */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1">Pilih Guru Penerima SK</label>
-                        <select
-                          required
-                          value={formFields.teacher_id}
-                          onChange={(e) => setFormFields({ ...formFields, teacher_id: e.target.value })}
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium"
-                        >
-                          <option value="">-- Pilih Guru --</option>
-                          {eligibleTeachers.map(t => (
-                            <option key={t.id} value={t.id}>{t.nama} - {t.jabatan}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* SK Type */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1">Jenis Surat Keputusan (SK)</label>
-                        <select
-                          value={formFields.jenis_sk}
-                          onChange={(e) => setFormFields({ ...formFields, jenis_sk: e.target.value })}
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium"
-                        >
-                          <option value="Pengangkatan Guru Tetap Yayasan (GTY)">Pengangkatan Guru Tetap Yayasan (GTY)</option>
-                          <option value="Pengangkatan Guru Tidak Tetap (GTT)">Pengangkatan Guru Tidak Tetap (GTT)</option>
-                          <option value="Penetapan Kepala Sekolah">Penetapan Kepala Sekolah</option>
-                          <option value="Pembagian Tugas Mengajar">Pembagian Tugas Mengajar</option>
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* TMT SK */}
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-500 mb-1">TMT SK (Mulai Tugas)</label>
-                          <input
-                            type="date"
-                            required
-                            value={formFields.tmt_sk}
-                            onChange={(e) => setFormFields({ ...formFields, tmt_sk: e.target.value })}
-                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium"
-                          />
-                        </div>
-
-                        {/* Proposed Gaji */}
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-500 mb-1">Usulan Gaji Pokok (Rp)</label>
-                          <input
-                            type="number"
-                            required
-                            min="0"
-                            value={formFields.gaji_pokok}
-                            onChange={(e) => setFormFields({ ...formFields, gaji_pokok: Number(e.target.value) })}
-                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Proposed Tunjangan */}
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-500 mb-1">Usulan Tunjangan (Rp)</label>
-                          <input
-                            type="number"
-                            required
-                            min="0"
-                            value={formFields.tunjangan}
-                            onChange={(e) => setFormFields({ ...formFields, tunjangan: Number(e.target.value) })}
-                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium font-mono"
-                          />
-                        </div>
-
-                        {/* Informational Help */}
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 flex items-start gap-2 text-[10px] text-slate-500 leading-normal">
-                          <Info className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                          <span>Usulan gaji & tunjangan akan direview oleh Pimpinan Daerah Aisyiyah saat persetujuan SK.</span>
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1">Catatan / Alasan Usulan</label>
-                        <textarea
-                          placeholder="Contoh: Pengusulan SK Guru Tetap berkat pengabdian selama 3 tahun penuh dan keaktifan organisasi..."
-                          value={formFields.notes}
-                          onChange={(e) => setFormFields({ ...formFields, notes: e.target.value })}
-                          rows={3}
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 focus:outline-none font-medium"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsSubmitModalOpen(false)}
-                    className="bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-xl text-xs hover:bg-slate-100 cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  {eligibleTeachers.length > 0 && (
-                    <button
-                      type="submit"
-                      disabled={processing}
-                      className="bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-2 rounded-xl text-xs cursor-pointer shadow-sm flex items-center gap-1.5"
-                    >
-                      {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck className="w-3.5 h-3.5" />}
-                      <span>Kirim Usulan SK</span>
-                    </button>
-                  )}
-                </div>
-              </form>
-            </motion.div>
-          </div>,
-          document.body
-        )}
-      </AnimatePresence>
 
       {/* MODAL: APPROVE SK (Admin Only) */}
       <AnimatePresence>

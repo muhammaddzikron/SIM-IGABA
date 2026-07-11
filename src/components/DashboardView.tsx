@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { School, Teacher, Student, Report, User } from '../types';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { School, Teacher, Student, Report, User, SKGuru } from '../types';
+import { ApiService } from '../lib/api';
 import {
   School as SchoolIcon,
   Users,
@@ -14,7 +16,15 @@ import {
   XCircle,
   TrendingUp,
   Award,
-  ArrowUpRight
+  ArrowUpRight,
+  FileText,
+  Printer,
+  X,
+  Loader2,
+  PlusCircle,
+  Calendar,
+  DollarSign,
+  AlertCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer,

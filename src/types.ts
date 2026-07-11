@@ -225,6 +225,7 @@ export interface SKGuru {
   notes: string;
   gaji_pokok?: number;
   tunjangan?: number;
+  tahun_mengajar?: string;
   created_at: string;
   updated_at: string;
 }

@@ -536,11 +536,11 @@ app.post('/api/auth/login', async (req, res) => {
   // 1. Try to find a matching school by custom password or NPSN / email / ID / custom username
   let matchingSchool = db.schools.find((s: any) => {
     const schoolPass = s.password_petugas || petugasPass;
-    const customUser = s.username_petugas ? s.username_petugas.trim().toLowerCase() : '';
+    const customUser = s.username_petugas ? String(s.username_petugas).trim().toLowerCase() : '';
     const isMatchingUsername = (customUser && username.toLowerCase() === customUser) ||
-                               username.toLowerCase() === s.npsn.toLowerCase() || 
-                               username.toLowerCase() === s.email.toLowerCase() ||
-                               username.toLowerCase() === s.id.toLowerCase();
+                               username.toLowerCase() === String(s.npsn || '').trim().toLowerCase() || 
+                               username.toLowerCase() === String(s.email || '').trim().toLowerCase() ||
+                               username.toLowerCase() === String(s.id || '').trim().toLowerCase();
     return isMatchingUsername && password === schoolPass;
   });
 
@@ -567,11 +567,11 @@ app.post('/api/auth/login', async (req, res) => {
         // Re-try finding matching school with newly synced data
         matchingSchool = db.schools.find((s: any) => {
           const schoolPass = s.password_petugas || petugasPass;
-          const customUser = s.username_petugas ? s.username_petugas.trim().toLowerCase() : '';
+          const customUser = s.username_petugas ? String(s.username_petugas).trim().toLowerCase() : '';
           const isMatchingUsername = (customUser && username.toLowerCase() === customUser) ||
-                                     username.toLowerCase() === s.npsn.toLowerCase() || 
-                                     username.toLowerCase() === s.email.toLowerCase() ||
-                                     username.toLowerCase() === s.id.toLowerCase();
+                                     username.toLowerCase() === String(s.npsn || '').trim().toLowerCase() || 
+                                     username.toLowerCase() === String(s.email || '').trim().toLowerCase() ||
+                                     username.toLowerCase() === String(s.id || '').trim().toLowerCase();
           return isMatchingUsername && password === schoolPass;
         });
 
