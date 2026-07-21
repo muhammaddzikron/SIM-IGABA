@@ -93,28 +93,32 @@ export interface Teacher {
 export interface Student {
   id: string;
   school_id: string;
-  nama: string;
-  nik: string;
-  nisn: string;
-  tempat_lahir: string;
-  tanggal_lahir: string;
-  jenis_kelamin: 'L' | 'P';
-  nama_ayah: string;
-  nama_ibu: string;
-  alamat: string;
-  rt: string;
-  rw: string;
-  kelurahan: string;
-  kecamatan: string;
-  kabupaten: string;
-  provinsi: string;
-  agama: string;
-  anak_ke: number;
-  jumlah_saudara: number;
-  status_aktif: 'Aktif' | 'Lulus' | 'Pindah' | 'Keluar';
-  tahun_masuk: string;
   tahun_pelajaran: string;
   semester: 'Ganjil' | 'Genap';
+  jumlah_l?: number; // Jumlah Laki-laki (L)
+  jumlah_p?: number; // Jumlah Perempuan (P)
+  jumlah_total?: number; // Total Murid
+  is_legacy?: boolean;
+  nama?: string;
+  nik?: string;
+  nisn?: string;
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  jenis_kelamin?: 'L' | 'P';
+  nama_ayah?: string;
+  nama_ibu?: string;
+  alamat?: string;
+  rt?: string;
+  rw?: string;
+  kelurahan?: string;
+  kecamatan?: string;
+  kabupaten?: string;
+  provinsi?: string;
+  agama?: string;
+  anak_ke?: number;
+  jumlah_saudara?: number;
+  status_aktif?: 'Aktif' | 'Lulus' | 'Pindah' | 'Keluar';
+  tahun_masuk?: string;
   created_at?: string;
   updated_at?: string;
 }

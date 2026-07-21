@@ -110,6 +110,34 @@ export default function ReportsView({
     inventoriesMap: Record<string, Inventory[]>;
   } | null>(null);
 
+  // Helper to extract student recap counts
+  const getStudentCountsForReport = (schoolId: string, tapel: string, semester: string) => {
+    const schoolStudents = students.filter(s => s.school_id === schoolId);
+    const match = schoolStudents.find(s => s.tahun_pelajaran === tapel && s.semester === semester && s.jumlah_l !== undefined);
+    if (match) {
+      return {
+        male: match.jumlah_l || 0,
+        female: match.jumlah_p || 0,
+        total: match.jumlah_total || 0
+      };
+    }
+    const anyRecap = schoolStudents.find(s => s.jumlah_l !== undefined);
+    if (anyRecap) {
+      return {
+        male: anyRecap.jumlah_l || 0,
+        female: anyRecap.jumlah_p || 0,
+        total: anyRecap.jumlah_total || 0
+      };
+    }
+    const oldBoys = schoolStudents.filter(s => s.jenis_kelamin === 'L').length;
+    const oldGirls = schoolStudents.filter(s => s.jenis_kelamin === 'P').length;
+    return {
+      male: oldBoys,
+      female: oldGirls,
+      total: oldBoys + oldGirls
+    };
+  };
+
   // Fetch details for all reports in selected month
   const fetchMonthlyDetails = async () => {
     try {
@@ -297,9 +325,10 @@ export default function ReportsView({
     }));
     setAttTeachersForm(initialTeachersArr);
 
-    // Initial student count estimations
-    const maleCount = students.filter(s => s.school_id === activeSchoolId && s.jenis_kelamin === 'L').length;
-    const femaleCount = students.filter(s => s.school_id === activeSchoolId && s.jenis_kelamin === 'P').length;
+    // Initial student count estimations using our recap helper
+    const counts = getStudentCountsForReport(activeSchoolId, generalFields.tahun_pelajaran, generalFields.semester);
+    const maleCount = counts.male;
+    const femaleCount = counts.female;
 
     setAttStudentsForm([
       { jenis_kelamin: 'L', hadir: maleCount * 22, izin: 0, sakit: 0, alpha: 0 },
@@ -503,11 +532,11 @@ export default function ReportsView({
     }
   };
 
-  // Student calculations for virtual sheet rendering
-  const schoolStudents = selectedReport ? students.filter(s => s.school_id === selectedReport.school_id) : [];
-  const maleCount = schoolStudents.filter(s => s.jenis_kelamin === 'L').length;
-  const femaleCount = schoolStudents.filter(s => s.jenis_kelamin === 'P').length;
-  const totalCount = maleCount + femaleCount;
+  // Student calculations for virtual sheet rendering using recap helper
+  const counts = selectedReport ? getStudentCountsForReport(selectedReport.school_id, selectedReport.tahun_pelajaran, selectedReport.semester) : { male: 0, female: 0, total: 0 };
+  const maleCount = counts.male;
+  const femaleCount = counts.female;
+  const totalCount = counts.total;
 
   const m_A = Math.ceil(maleCount * 0.4);
   const m_B = maleCount - m_A;
@@ -2121,9 +2150,10 @@ export default function ReportsView({
               const repStudents = monthlyDetails.studentsMap[report.id] || [];
               const repInventories = monthlyDetails.inventoriesMap[report.id] || [];
               
-              const maleCount = schoolStudents.filter(s => s.jenis_kelamin === 'L').length;
-              const femaleCount = schoolStudents.filter(s => s.jenis_kelamin === 'P').length;
-              const totalCount = maleCount + femaleCount;
+              const counts = getStudentCountsForReport(report.school_id, report.tahun_pelajaran, report.semester);
+              const maleCount = counts.male;
+              const femaleCount = counts.female;
+              const totalCount = counts.total;
               
               const m_A = Math.ceil(maleCount * 0.4);
               const m_B = maleCount - m_A;

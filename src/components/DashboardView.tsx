@@ -79,7 +79,42 @@ export default function DashboardView({
   // Aggregate Metrics
   const totalSchools = displaySchools.length;
   const totalTeachers = displayTeachers.length;
-  const totalStudents = displayStudents.length;
+
+  // Get latest student recap statistics or legacy fallback
+  const getLatestStudentStats = () => {
+    const schoolIds = Array.from(new Set(displayStudents.map(s => s.school_id)));
+    let totalL = 0;
+    let totalP = 0;
+    
+    schoolIds.forEach(schId => {
+      const schRecaps = displayStudents.filter(s => s.school_id === schId);
+      const realRecaps = schRecaps.filter(s => s.jumlah_l !== undefined);
+      const legacyRecaps = schRecaps.filter(s => s.jumlah_l === undefined);
+      
+      if (realRecaps.length > 0) {
+        const sorted = [...realRecaps].sort((a, b) => {
+          const yrCompare = (b.tahun_pelajaran || '').localeCompare(a.tahun_pelajaran || '');
+          if (yrCompare !== 0) return yrCompare;
+          return (b.semester || '').localeCompare(a.semester || '');
+        });
+        const latest = sorted[0];
+        totalL += latest.jumlah_l || 0;
+        totalP += latest.jumlah_p || 0;
+      } else {
+        totalL += legacyRecaps.filter(s => s.jenis_kelamin === 'L').length;
+        totalP += legacyRecaps.filter(s => s.jenis_kelamin === 'P').length;
+      }
+    });
+    
+    return {
+      male: totalL,
+      female: totalP,
+      total: totalL + totalP
+    };
+  };
+
+  const studentStats = getLatestStudentStats();
+  const totalStudents = studentStats.total;
   const totalReports = displayReports.length;
   
   const incompleteReports = displayReports.filter(
@@ -113,8 +148,8 @@ export default function DashboardView({
   ];
 
   // 3. Gender breakdown Murid
-  const boyMurid = displayStudents.filter(s => s.jenis_kelamin === 'L').length;
-  const girlMurid = displayStudents.filter(s => s.jenis_kelamin === 'P').length;
+  const boyMurid = studentStats.male;
+  const girlMurid = studentStats.female;
   const dataGenderMurid = [
     { name: 'Laki-laki (L)', value: boyMurid || 2 },
     { name: 'Perempuan (P)', value: girlMurid || 2 }

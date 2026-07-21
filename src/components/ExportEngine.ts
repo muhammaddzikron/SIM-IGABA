@@ -809,59 +809,38 @@ export const ExportEngine = {
   },
 
   /**
-   * Generates a template for student data import
+   * Generates a template for student data import (recap format)
    */
   async downloadStudentTemplate() {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Template Murid');
+    const worksheet = workbook.addWorksheet('Template Rekap Murid');
 
     // Instructions
-    worksheet.mergeCells('A1:V1');
-    worksheet.getCell('A1').value = 'PETUNJUK PENGISIAN TEMPLATE DATA MURID (SIABA)';
+    worksheet.mergeCells('A1:E1');
+    worksheet.getCell('A1').value = 'PETUNJUK PENGISIAN TEMPLATE REKAP TOTAL MURID (SIABA)';
     worksheet.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: '15803d' } };
 
-    worksheet.mergeCells('A2:V2');
-    worksheet.getCell('A2').value = '1. Kolom bertanda bintang (*) WAJIB diisi. Kolom lainnya dapat dikosongkan atau diisi tanda strip (-).';
+    worksheet.mergeCells('A2:E2');
+    worksheet.getCell('A2').value = '1. Kolom bertanda bintang (*) WAJIB diisi.';
     worksheet.getCell('A2').font = { name: 'Arial', size: 9, italic: true };
 
-    worksheet.mergeCells('A3:V3');
-    worksheet.getCell('A3').value = '2. Format Tanggal Lahir menggunakan format YYYY-MM-DD (Contoh: 2020-10-15).';
+    worksheet.mergeCells('A3:E3');
+    worksheet.getCell('A3').value = '2. Tahun Pelajaran ditulis dengan format YYYY/YYYY (Contoh: 2025/2026).';
     worksheet.getCell('A3').font = { name: 'Arial', size: 9, italic: true };
 
-    worksheet.mergeCells('A4:V4');
-    worksheet.getCell('A4').value = '3. Kolom Jenis Kelamin diisi L (Laki-laki) atau P (Perempuan).';
+    worksheet.mergeCells('A4:E4');
+    worksheet.getCell('A4').value = '3. Semester diisi Ganjil atau Genap.';
     worksheet.getCell('A4').font = { name: 'Arial', size: 9, italic: true };
-
-    worksheet.mergeCells('A5:V5');
-    worksheet.getCell('A5').value = '4. Kolom Status Aktif diisi salah satu dari: Aktif, Lulus, Pindah, Keluar.';
-    worksheet.getCell('A5').font = { name: 'Arial', size: 9, italic: true };
 
     worksheet.addRow([]); // Blank spacer
 
     // Headers
     const headers = [
-      'Nama Lengkap Murid*',
-      'NIK* (16 Digit)',
-      'NISN* (10 Digit)',
-      'Tempat Lahir*',
-      'Tanggal Lahir* (YYYY-MM-DD)',
-      'Jenis Kelamin* (L/P)',
-      'Nama Ayah*',
-      'Nama Ibu*',
-      'Alamat*',
-      'RT',
-      'RW',
-      'Kelurahan*',
-      'Kecamatan*',
-      'Kabupaten*',
-      'Provinsi*',
-      'Agama*',
-      'Anak Ke*',
-      'Jumlah Saudara*',
-      'Status Aktif*',
-      'Tahun Masuk*',
       'Tahun Pelajaran*',
-      'Semester* (Ganjil/Genap)'
+      'Semester* (Ganjil/Genap)',
+      'Jumlah Murid Laki-laki* (L)',
+      'Jumlah Murid Perempuan* (P)',
+      'Total Murid (Diisi Otomatis)'
     ];
 
     const rowHeader = worksheet.addRow(headers);
@@ -877,55 +856,21 @@ export const ExportEngine = {
 
     // Sample Row
     const sampleRow = worksheet.addRow([
-      'Ahmad Syarif',
-      '3301021510200001',
-      '0201234567',
-      'Klaten',
-      '2020-10-15',
-      'L',
-      'Budi Santoso',
-      'Siti Rahma',
-      'Jl. Mawar No. 5, Gergunung',
-      '02',
-      '04',
-      'Gergunung',
-      'Klaten Utara',
-      'Klaten',
-      'Jawa Tengah',
-      'Islam',
-      1,
-      2,
-      'Aktif',
-      '2025',
-      '2026/2027',
-      'Ganjil'
+      '2025/2026',
+      'Ganjil',
+      60,
+      64,
+      124
     ]);
     sampleRow.font = { name: 'Arial', size: 9, color: { argb: '475569' } };
 
     // Column widths
     worksheet.columns = [
-      { width: 25 }, // Nama
-      { width: 20 }, // NIK
-      { width: 15 }, // NISN
-      { width: 15 }, // Tempat Lahir
-      { width: 25 }, // Tanggal Lahir
-      { width: 15 }, // Gender
-      { width: 20 }, // Ayah
-      { width: 20 }, // Ibu
-      { width: 25 }, // Alamat
-      { width: 8 },  // RT
-      { width: 8 },  // RW
-      { width: 15 }, // Kelurahan
-      { width: 15 }, // Kecamatan
-      { width: 15 }, // Kabupaten
-      { width: 15 }, // Provinsi
-      { width: 12 }, // Agama
-      { width: 10 }, // Anak Ke
-      { width: 15 }, // Jumlah Saudara
-      { width: 15 }, // Status
-      { width: 15 }, // Tahun Masuk
-      { width: 15 }, // Tapel
-      { width: 15 }  // Semester
+      { width: 25 }, // Tapel
+      { width: 25 }, // Semester
+      { width: 25 }, // L
+      { width: 25 }, // P
+      { width: 25 }  // Total
     ];
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -933,7 +878,7 @@ export const ExportEngine = {
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'Template_Master_Data_Murid.xlsx';
+    anchor.download = 'Template_Rekap_Total_Murid.xlsx';
     anchor.click();
     window.URL.revokeObjectURL(url);
   },
@@ -993,7 +938,7 @@ export const ExportEngine = {
   },
 
   /**
-   * Parses uploaded Student Excel file
+   * Parses uploaded Student Excel file (recap format)
    */
   async parseStudentExcel(file: File): Promise<any[]> {
     const workbook = new ExcelJS.Workbook();
@@ -1005,43 +950,30 @@ export const ExportEngine = {
     let headerIndex = -1;
     worksheet.eachRow((row, rowNumber) => {
       const cell1Text = row.getCell(1).text?.trim() || '';
-      if (cell1Text.includes('Nama Lengkap Murid')) {
+      if (cell1Text.includes('Tahun Pelajaran')) {
         headerIndex = rowNumber;
         return;
       }
 
       if (headerIndex !== -1 && rowNumber > headerIndex) {
-        const nama = row.getCell(1).text?.trim();
-        const nik = row.getCell(2).text?.trim();
-        if (!nama || !nik) return;
+        const tahun_pelajaran = row.getCell(1).text?.trim();
+        const semester = row.getCell(2).text?.trim();
+        if (!tahun_pelajaran || !semester) return;
 
         // Skip sample row
-        if (nama === 'Ahmad Syarif' || nik === '3301021510200001') return;
+        if (tahun_pelajaran === '2025/2026' && semester === 'Ganjil' && Number(row.getCell(3).value) === 60) return;
 
-        // Clean values
+        const jumlah_l = Number(row.getCell(3).value) || 0;
+        const jumlah_p = Number(row.getCell(4).value) || 0;
+        const jumlah_total = jumlah_l + jumlah_p;
+
         const s: any = {
-          nama,
-          nik,
-          nisn: row.getCell(3).text?.trim() || '',
-          tempat_lahir: row.getCell(4).text?.trim() || 'Klaten',
-          tanggal_lahir: parseExcelDate(row.getCell(5), '2020-01-01'),
-          jenis_kelamin: (row.getCell(6).text?.trim() || 'P').toUpperCase().startsWith('L') ? 'L' : 'P',
-          nama_ayah: row.getCell(7).text?.trim() || '-',
-          nama_ibu: row.getCell(8).text?.trim() || '-',
-          alamat: row.getCell(9).text?.trim() || '',
-          rt: row.getCell(10).text?.trim() || '01',
-          rw: row.getCell(11).text?.trim() || '01',
-          kelurahan: row.getCell(12).text?.trim() || '',
-          kecamatan: row.getCell(13).text?.trim() || '',
-          kabupaten: row.getCell(14).text?.trim() || 'Klaten',
-          provinsi: row.getCell(15).text?.trim() || 'Jawa Tengah',
-          agama: row.getCell(16).text?.trim() || 'Islam',
-          anak_ke: typeof row.getCell(17).value === 'number' ? row.getCell(17).value : Number(row.getCell(17).text) || 1,
-          jumlah_saudara: typeof row.getCell(18).value === 'number' ? row.getCell(18).value : Number(row.getCell(18).text) || 0,
-          status_aktif: (row.getCell(19).text?.trim() || 'Aktif') as any,
-          tahun_masuk: row.getCell(20).text?.trim() || '2025',
-          tahun_pelajaran: row.getCell(21).text?.trim() || '2026/2027',
-          semester: (row.getCell(22).text?.trim() || 'Ganjil') as any
+          tahun_pelajaran,
+          semester: semester === 'Genap' ? 'Genap' : 'Ganjil',
+          jumlah_l,
+          jumlah_p,
+          jumlah_total,
+          status_aktif: 'Aktif'
         };
         students.push(s);
       }
